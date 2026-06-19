@@ -1,0 +1,3559 @@
+\documentclass[UTF8,openany,12pt]{ctexbook}
+
+\usepackage[a4paper,margin=2.35cm]{geometry}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{stmaryrd}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{listings}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue!55!black,
+  urlcolor=blue!55!black,
+  citecolor=blue!55!black
+}
+
+\setlist[itemize]{leftmargin=2em,itemsep=0.25em,topsep=0.25em}
+\setlist[enumerate]{leftmargin=2em,itemsep=0.25em,topsep=0.25em}
+\linespread{1.16}
+\emergencystretch=2em
+
+\newtheorem{definition}{定义}[chapter]
+\newtheorem{theorem}{定理}[chapter]
+\newtheorem{lemma}{引理}[chapter]
+\newtheorem{proposition}{命题}[chapter]
+\newtheorem{corollary}{推论}[chapter]
+\theoremstyle{remark}
+\newtheorem{remark}{说明}[chapter]
+
+\newcommand{\lecture}[3]{
+  \chapter{#2}
+  \noindent\textbf{对应课件：}#1\hfill\textbf{主题：}#3
+  \vspace{0.6em}
+}
+\newcommand{\lecturewithnumber}[4]{
+  \setcounter{chapter}{#1}
+  \addtocounter{chapter}{-1}
+  \chapter{#3}
+  \noindent\textbf{对应课件：}#2\hfill\textbf{主题：}#4
+  \vspace{0.6em}
+}
+\newcommand{\keypoint}[1]{\paragraph{核心记忆}#1}
+\newcommand{\complexity}[1]{\paragraph{复杂度}#1}
+\newcommand{\proofidea}[1]{\paragraph{证明思路}#1}
+\newcommand{\pitfall}[1]{\paragraph{易错点}#1}
+\newcommand{\OPT}{\mathrm{OPT}}
+\newcommand{\poly}{\mathrm{poly}}
+\newcommand{\NP}{\mathrm{NP}}
+\newcommand{\coNP}{\mathrm{coNP}}
+\newcommand{\PSPACE}{\mathrm{PSPACE}}
+\newcommand{\EXPTIME}{\mathrm{EXPTIME}}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  keepspaces=true,
+  frame=single,
+  breaklines=true,
+  showstringspaces=false
+}
+
+\title{算法设计与分析课程笔记}
+\author{根据 \texttt{org/*.pdf} 课程课件整理}
+\date{\today}
+
+\begin{document}
+\frontmatter
+\maketitle
+\tableofcontents
+
+\chapter*{使用说明}
+\addcontentsline{toc}{chapter}{使用说明}
+这份笔记按照目录 \texttt{org/} 中已有课件整理，覆盖 \texttt{01.pdf}--\texttt{13.pdf} 与
+\texttt{15.pdf}--\texttt{23.pdf}。目录中未提供 \texttt{14.pdf}，因此本笔记也保留编号空缺。
+
+笔记不是逐页翻译幻灯片，而是按每章主题重组为适合复习和考试使用的讲义：先给问题模型和关键定义，再给算法步骤、正确性证明线索、复杂度和常见陷阱。若同一思想在多章中反复出现，例如割与对偶、动态规划、归约、线性规划松弛，笔记会在相关章节中交叉提醒。
+
+\mainmatter
+
+\lecture{01.pdf}{课程导论与基础算法}{排序、BFS、Dijkstra、算法的含义}
+
+\section{课程视角：算法不只是程序}
+
+算法设计与分析关注三个层面：
+\begin{enumerate}
+  \item \textbf{问题建模}：将现实问题抽象为精确的数学/计算模型，明确输入、输出和正确性标准。
+  \item \textbf{算法设计}：给出解决问题的步骤，保证对所有合法输入都产生正确输出。
+  \item \textbf{算法分析}：量化算法的时间和空间消耗，给出渐进复杂度保证。
+\end{enumerate}
+
+本课程涉及三种核心范式：\textbf{分治}（Divide and Conquer）、\textbf{贪心}（Greedy）、\textbf{动态规划}（Dynamic Programming）。每种范式都有其适用场景和典型问题。
+
+\section{为什么要学算法设计？}
+
+\begin{remark}
+算法 = 解决问题的精确步骤 + 正确性保证 + 复杂度承诺。
+\end{remark}
+
+写程序并不难，但\emph{证明程序对所有输入都正确且高效}才是算法的核心挑战。考虑一个简单例子：在一本有一百万条记录的电话簿中查找某人。
+
+\begin{itemize}
+  \item \textbf{线性扫描}：逐条比对，最坏需要 $O(n)$ 次比较。对于 $n = 10^6$，平均需要 $5 \times 10^5$ 次。
+  \item \textbf{二分查找}：利用已排序特性，每次排除一半，只需 $O(\log n)$ 次比较。对于 $n = 10^6$，只需约 $20$ 次。
+\end{itemize}
+
+这个差距在数据规模增大时会变得极为显著。算法课程教你如何系统地\emph{设计}出高效算法，并\emph{证明}其正确性与复杂度，而不是靠直觉猜测。
+
+\section{排序与分治}
+
+\subsection{归并排序}
+
+\begin{remark}
+分治的核心思想：将大问题递归地拆成规模更小的同类子问题，分别解决后再合并结果。
+\end{remark}
+
+\textbf{算法思路：} 将数组从中间分为两半，递归排序左半部分和右半部分，再将两个有序数组合并（Merge）为一个有序数组。
+
+\textbf{完整递归示例：} 对数组 $[5,3,8,1,4,2,7,6]$ 展示分解与合并过程：
+
+\begin{itemize}
+  \item \textbf{分解阶段：}
+  \begin{itemize}
+    \item 层 0：$[5,3,8,1,4,2,7,6]$
+    \item 层 1：$[5,3,8,1]$ \quad $[4,2,7,6]$
+    \item 层 2：$[5,3]$ \quad $[8,1]$ \quad $[4,2]$ \quad $[7,6]$
+    \item 层 3：$[5]\ [3]$ \quad $[8]\ [1]$ \quad $[4]\ [2]$ \quad $[7]\ [6]$
+  \end{itemize}
+  \item \textbf{合并阶段：}
+  \begin{itemize}
+    \item 层 3 $\to$ 层 2：$[3,5]$ \quad $[1,8]$ \quad $[2,4]$ \quad $[6,7]$
+    \item 层 2 $\to$ 层 1：$[1,3,5,8]$ \quad $[2,4,6,7]$
+    \item 层 1 $\to$ 层 0：$[1,2,3,4,5,6,7,8]$
+  \end{itemize}
+\end{itemize}
+
+\textbf{正确性（归纳论证）：} 设 $P(n)$ 为"归并排序对长度为 $n$ 的数组能正确排序"。
+\begin{itemize}
+  \item 基础情形：$n=1$，数组已有序，显然正确。
+  \item 归纳步骤：假设 $P(k)$ 对所有 $k < n$ 成立。归并排序将数组分为两个长度为 $\lfloor n/2 \rfloor$ 和 $\lceil n/2 \rceil$ 的子数组，由归纳假设两个子数组均被正确排序；而 Merge 过程正确地将两个有序数组合并为一个有序数组（可单独证明），故 $P(n)$ 成立。
+\end{itemize}
+
+\textbf{时间复杂度：} 设 $T(n)$ 为对长度 $n$ 的数组排序的时间，则有递推式：
+\[
+  T(n) = 2T\!\left(\frac{n}{2}\right) + \Theta(n), \quad T(1) = \Theta(1).
+\]
+由 Master 定理（下节），$T(n) = \Theta(n \log n)$。
+
+\subsection{Master Theorem}
+
+\begin{remark}
+Master Theorem 给递归式 $T(n) = aT(n/b) + f(n)$（$a \geq 1, b > 1$）提供了三种情形的封闭形式解。三种情形的图像化理解：递归树有 $\log_b n$ 层，根部工作量 $f(n)$，叶子数量 $n^{\log_b a}$。谁"更重"谁主导；若势均力敌则每层相当，总量多一个 $\log$ 因子。
+\end{remark}
+
+\begin{theorem}[Master Theorem]
+设 $T(n) = aT(n/b) + f(n)$，令 $E = \log_b a$。
+\begin{enumerate}
+  \item \textbf{叶子主导}：若 $f(n) = O(n^{E-\varepsilon})$（$\varepsilon > 0$），则 $T(n) = \Theta(n^E)$。
+  \item \textbf{均衡}：若 $f(n) = \Theta(n^E)$，则 $T(n) = \Theta(n^E \log n)$。
+  \item \textbf{根部主导}：若 $f(n) = \Omega(n^{E+\varepsilon})$（$\varepsilon > 0$）且满足正则性条件 $af(n/b) \leq cf(n)$（$c < 1$），则 $T(n) = \Theta(f(n))$。
+\end{enumerate}
+\end{theorem}
+
+\textbf{计算例子：}
+
+\begin{enumerate}
+  \item $T(n) = 2T(n/2) + n$（归并排序）：$a=2, b=2, E = \log_2 2 = 1$，$f(n) = n = \Theta(n^1)$，属情形 2，故 $T(n) = \Theta(n \log n)$。
+  \item $T(n) = 4T(n/2) + n$：$a=4, b=2, E = \log_2 4 = 2$，$f(n) = n = O(n^{2-1})$，属情形 1（$\varepsilon=1$），故 $T(n) = \Theta(n^2)$。
+\end{enumerate}
+
+\section{图搜索：BFS}
+
+\begin{remark}
+BFS 的直觉：从源点出发，像水波纹一样逐层向外扩散。第 $k$ 层包含所有距源点恰好为 $k$ 条边的节点。
+\end{remark}
+
+\begin{lstlisting}[language=Python, caption={BFS 伪代码}]
+def BFS(G, s):
+    for v in G.V:
+        dist[v] = infinity
+    dist[s] = 0
+    queue = deque([s])
+    while queue:
+        u = queue.popleft()
+        for v in G.neighbors(u):
+            if dist[v] == infinity:
+                dist[v] = dist[u] + 1
+                queue.append(v)
+    return dist
+\end{lstlisting}
+
+\textbf{完整 BFS 过程示例：} 考虑 6 节点无向图，节点 $\{1,2,3,4,5,6\}$，边集 $\{1\text{-}2, 1\text{-}3, 2\text{-}4, 2\text{-}5, 3\text{-}6\}$，源点 $s=1$。
+
+\begin{center}
+\begin{tabular}{@{}clll@{}}
+\toprule
+步骤 & 出队节点 & 加入队列 & 各节点距离 $d[1..6]$ \\
+\midrule
+初始 & --- & $[1]$ & $[0, \infty, \infty, \infty, \infty, \infty]$ \\
+1    & 1   & $[2, 3]$    & $[0, 1, 1, \infty, \infty, \infty]$ \\
+2    & 2   & $[3, 4, 5]$ & $[0, 1, 1, 2, 2, \infty]$ \\
+3    & 3   & $[4, 5, 6]$ & $[0, 1, 1, 2, 2, 2]$ \\
+4    & 4   & $[5, 6]$    & $[0, 1, 1, 2, 2, 2]$ \\
+5    & 5   & $[6]$       & $[0, 1, 1, 2, 2, 2]$ \\
+6    & 6   & $[\,]$      & $[0, 1, 1, 2, 2, 2]$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{正确性：} 对任意节点 $v$，BFS 结束时 $d[v]$ 等于图中 $s$ 到 $v$ 的最短路（边数）。归纳证明：若第 $k$ 层节点的距离已正确设为 $k$，则它们的邻居中未访问者距离恰为 $k+1$，被正确设置并入队。
+
+\complexity{BFS 时间复杂度为 $\Theta(|V|+|E|)$，其中每条边被检查至多 2 次（无向图）或 1 次（有向图），每个节点入队出队各一次。}
+
+\section{带正权最短路：Dijkstra}
+
+\begin{remark}
+Dijkstra 的直觉：贪心地维护一个"已确认最短距离"的节点集合 $S$。每次从未确认节点中选出当前距离最小的节点，将其加入 $S$，并用它更新邻居距离。这个过程像逐步扩张一个"已知安全区域"。
+\end{remark}
+
+\textbf{完整执行示例：} 5 节点有向带权图，边及权重：$1\to2: 4$，$1\to3: 2$，$2\to4: 3$，$3\to2: 1$，$3\to4: 5$，$4\to5: 1$，源点 $s=1$。
+
+\begin{center}
+\begin{tabular}{@{}cclllll@{}}
+\toprule
+轮次 & 选定节点 & $d[1]$ & $d[2]$ & $d[3]$ & $d[4]$ & $d[5]$ \\
+\midrule
+初始 & --- & 0 & $\infty$ & $\infty$ & $\infty$ & $\infty$ \\
+1    & 1   & 0 & 4        & 2        & $\infty$ & $\infty$ \\
+2    & 3   & 0 & 3        & 2        & 7        & $\infty$ \\
+3    & 2   & 0 & 3        & 2        & 6        & $\infty$ \\
+4    & 4   & 0 & 3        & 2        & 6        & 7        \\
+5    & 5   & 0 & 3        & 2        & 6        & 7        \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+最短路结果：$d[1]=0, d[2]=3, d[3]=2, d[4]=6, d[5]=7$，路径 $1\to3\to2\to4\to5$。
+
+\textbf{实现复杂度：}
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+优先队列实现 & 时间复杂度 & 适用场景 \\
+\midrule
+数组（线性扫描） & $O(|V|^2)$ & 稠密图 \\
+二叉堆 & $O((|V|+|E|)\log|V|)$ & 稀疏图 \\
+斐波那契堆 & $O(|E| + |V|\log|V|)$ & 理论最优 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\keypoint{Dijkstra 要求所有边权非负。贪心选择的正确性依赖于：从源点到已选节点的路径不可能被"绕一个负权边"而变短。若存在负权边，此假设不成立，需改用 Bellman-Ford。}
+
+\lecture{02.pdf}{深度优先搜索与强连通分量}{DFS、DAG、SCC}
+
+\section{为什么需要 DFS？}
+
+BFS 适合探索"离源点多远"的问题，即找最短路径。而 DFS 适合探索图的\emph{结构性质}，例如连通性、环的存在性、拓扑顺序等。
+
+\begin{remark}
+DFS 的直觉：像在迷宫中探险——沿一条路一直走到底，遇到死路（已访问节点或无出边）才回溯，然后尝试其他方向。这种"深入再回溯"的策略天然记录了图的递归结构。
+\end{remark}
+
+\section{DFS 的时间戳与边分类}
+
+DFS 为每个节点记录两个时间戳：
+\begin{itemize}
+  \item $\mathrm{pre}[v]$：节点 $v$ 第一次被访问（进入）时的时钟值。
+  \item $\mathrm{post}[v]$：节点 $v$ 的所有后代都被探索完毕（退出）时的时钟值。
+\end{itemize}
+
+\textbf{完整示例：} 8 节点有向图，节点 $\{1,\ldots,8\}$，边集：$1\to2, 1\to3, 2\to4, 2\to5, 3\to6, 4\to7, 5\to7, 6\to8, 7\to8, 3\to5$。从节点 1 开始 DFS（邻居按编号升序访问）：
+
+\begin{center}
+\begin{tabular}{@{}ccc@{}}
+\toprule
+节点 & $\mathrm{pre}$ & $\mathrm{post}$ \\
+\midrule
+1 & 1  & 16 \\
+2 & 2  & 11 \\
+3 & 12 & 15 \\
+4 & 3  & 8  \\
+5 & 9  & 10 \\
+6 & 13 & 14 \\
+7 & 4  & 7  \\
+8 & 5  & 6  \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{四种边的定义与判断规则：} 设 DFS 正在处理边 $(u, v)$：
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+边的类型 & 条件 & 含义 \\
+\midrule
+树边（Tree edge）      & $v$ 未被访问 & DFS 树中的父子边 \\
+回边（Back edge）      & $v$ 是 $u$ 的祖先（$\mathrm{pre}[v] < \mathrm{pre}[u]$，$\mathrm{post}[v]$ 未定） & 指向祖先，形成有向环 \\
+前向边（Forward edge） & $v$ 是 $u$ 的后代（$\mathrm{pre}[u] < \mathrm{pre}[v]$，$\mathrm{post}[v] < \mathrm{post}[u]$） & 跨越树中多层向下 \\
+横叉边（Cross edge）   & 其余情形（$\mathrm{post}[v] < \mathrm{pre}[u]$） & 不同子树之间 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\proofidea{有向图中存在回边当且仅当图中存在有向环（即图不是 DAG）。原因：回边 $(u,v)$ 加上树路径 $v \leadsto u$ 构成一个有向环；反之，若存在环则 DFS 必然遇到一条回边。}
+
+\section{DAG 与拓扑排序}
+
+\begin{definition}
+\textbf{有向无环图（DAG）} 是不含有向环的有向图。
+\textbf{拓扑排序} 是将 DAG 的所有顶点排成一个线性序列，使得对每条有向边 $(u,v)$，$u$ 在序列中排在 $v$ 之前。
+\end{definition}
+
+\begin{remark}
+直觉：大学课程的先修关系构成一个 DAG——不可能存在"A 是 B 的先修，B 是 A 的先修"这样的循环。拓扑排序就是给出一个合理的选课顺序，使得每门课在其所有先修课之后学习。
+\end{remark}
+
+\textbf{算法：} 对 DAG 做 DFS，按 $\mathrm{post}$ 值\emph{递减}顺序输出节点，即得一个拓扑排序。
+
+\proofidea{对任意边 $(u,v)$，在有向图中 $(u,v)$ 不是回边（DAG 无环），故 $v$ 在 $u$ 的 DFS 调用\emph{期间}完成（树边/前向边）或在 $u$ 之前完成（横叉边）。两种情况均有 $\mathrm{post}[v] < \mathrm{post}[u]$，即递减序中 $u$ 排在 $v$ 之前。}
+
+\textbf{完整例子：} 6 门课程：$A$（线代）、$B$（微积分）、$C$（概率论，先修 $A,B$）、$D$（算法，先修 $B$）、$E$（机器学习，先修 $C,D$）、$F$（毕业设计，先修 $E$）。先修关系构成 DAG，DFS 后的 $\mathrm{post}$ 递减序（一种合法拓扑排序）为：
+
+\[
+  A \to B \to C \to D \to E \to F
+\]
+
+\section{强连通分量}
+
+\begin{definition}
+有向图 $G=(V,E)$ 的\textbf{强连通分量（SCC）} 是最大顶点子集 $C \subseteq V$，使得 $C$ 内任意两顶点 $u,v$ 互相可达（$u \leadsto v$ 且 $v \leadsto u$）。
+\end{definition}
+
+\begin{proposition}
+将 $G$ 的每个 SCC 收缩为单个节点，得到的\textbf{凝聚图（Component DAG）} $G^{\mathrm{SCC}}$ 是一个 DAG。
+\end{proposition}
+
+\proofidea{若凝聚图中存在环，则环上所有 SCC 的节点两两可达，与 SCC 的最大性矛盾。}
+
+\section{Kosaraju 线性算法}
+
+\begin{remark}
+核心直觉：在反图 $G^R$（所有边反向）上运行 DFS，$\mathrm{post}$ 值最大的节点 $v^*$ 在原图凝聚 DAG 中对应一个\emph{源 SCC}（没有入边的 SCC）。然后在\emph{原图}上从 $v^*$ 出发 DFS，恰好能到达（且仅能到达）$v^*$ 所在的 SCC。重复此过程即可找出所有 SCC。
+\end{remark}
+
+\textbf{算法步骤：}
+\begin{enumerate}
+  \item 构造反图 $G^R$（将 $G$ 中所有边方向反转）。
+  \item 在 $G^R$ 上对所有节点运行 DFS，记录每个节点的 $\mathrm{post}$ 值。
+  \item 按 $\mathrm{post}$ 值\emph{递减}顺序，在\emph{原图} $G$ 上对每个未访问节点运行 DFS。每次 DFS 访问到的节点集合恰为一个 SCC。
+\end{enumerate}
+
+\textbf{完整示例：} 7 节点有向图，节点 $\{1,\ldots,7\}$，边集：$1\to2, 2\to3, 3\to1, 3\to4, 4\to5, 5\to6, 6\to4, 6\to7$。
+
+\textbf{第一步：反图 $G^R$ 的边：} $2\to1, 3\to2, 1\to3, 4\to3, 5\to4, 6\to5, 4\to6, 7\to6$。
+
+\textbf{第二步：在 $G^R$ 上运行 DFS（从节点 1 开始，未访问时从编号最小未访问节点出发），得到 post 顺序（递增）：}
+
+\begin{center}
+\begin{tabular}{@{}cc@{}}
+\toprule
+节点 & $\mathrm{post}$ 值（$G^R$ 上） \\
+\midrule
+1 & 6  \\
+2 & 5  \\
+3 & 4  \\
+4 & 9  \\
+5 & 8  \\
+6 & 7  \\
+7 & 14 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{第三步：按 post 递减顺序（$7,4,6,5,1,2,3$）在原图 $G$ 上 DFS，得三个 SCC：}
+
+\begin{itemize}
+  \item 从节点 7 出发：仅到达 $\{7\}$，SCC$_1 = \{7\}$。
+  \item 从节点 4 出发：到达 $\{4,5,6\}$，SCC$_2 = \{4,5,6\}$（因 $4\to5\to6\to4$ 形成环）。
+  \item 从节点 1 出发：到达 $\{1,2,3\}$，SCC$_3 = \{1,2,3\}$（因 $1\to2\to3\to1$ 形成环）。
+\end{itemize}
+
+\proofidea{设 $C^*$ 是凝聚 DAG 中 post 值最大节点所在的 SCC（在 $G^R$ 上运行时对应原图的源 SCC）。从 $C^*$ 中的节点在原图上 DFS，只能到达 $C^*$ 内部（源 SCC 无入边），恰好覆盖整个 $C^*$。去掉 $C^*$ 后重复，归纳完成。}
+
+\complexity{Kosaraju 算法时间复杂度为 $\Theta(|V|+|E|)$：构造反图 $O(|V|+|E|)$，两次 DFS 各 $O(|V|+|E|)$。}
+
+\lecture{03.pdf}{最小生成树}{割、环、Prim、Kruskal、Boruvka}
+
+\section{动机}
+
+\begin{remark}
+直觉：一家电信公司需要用光纤连接 $n$ 座城市，使任意两城市间都有通路，且铺设的总光纤长度最短。这就是\textbf{最小生成树（MST）}问题。
+\end{remark}
+
+\section{生成树与 MST}
+
+\begin{definition}
+设 $G=(V,E,w)$ 是连通无向带权图。$G$ 的\textbf{生成树}是包含所有 $|V|$ 个顶点、无环、连通的子图，恰好有 $|V|-1$ 条边。$G$ 的\textbf{最小生成树（MST）} 是所有生成树中总权重 $\sum_{e \in T} w(e)$ 最小的那棵。
+\end{definition}
+
+\section{割性质与环性质}
+
+\begin{definition}
+图 $G=(V,E)$ 的一个\textbf{割（Cut）} $(S, V\setminus S)$ 是将顶点集分为两个非空子集 $S$ 和 $V\setminus S$ 的划分。一条边\textbf{跨越该割}，若其一端在 $S$ 中，另一端在 $V\setminus S$ 中。
+\end{definition}
+
+\begin{theorem}[割性质（Cut Property）]
+设 $(S, V\setminus S)$ 是 $G$ 的任意一个割，$e^*$ 是跨越该割的唯一最轻边（权重严格最小）。则 $e^*$ 属于 $G$ 的\emph{每一棵} MST。
+\end{theorem}
+
+\proofidea{反证：设某 MST $T$ 不含 $e^*=(u,v)$。将 $e^*$ 加入 $T$ 形成唯一一个环 $C$，$C$ 上必有另一条跨越割的边 $e' \ne e^*$（因 $u\in S, v\notin S$，路径 $u\leadsto v$ 在 $T$ 中必再次跨割）。由于 $w(e^*) < w(e')$，将 $e'$ 替换为 $e^*$ 得到权重更小的生成树，与 $T$ 是 MST 矛盾。}
+
+\begin{theorem}[环性质（Cycle Property）]
+设 $C$ 是 $G$ 中的任意一个环，$e^*$ 是 $C$ 上权重严格最大的边。则 $e^*$ 不属于 $G$ 的任何 MST。
+\end{theorem}
+
+\proofidea{若某 MST $T$ 含 $e^*=(u,v)$，删去 $e^*$ 将 $T$ 分为两棵子树（形成一个割）。$C$ 上其余某条边 $e'$ 跨越该割，且 $w(e') < w(e^*)$。用 $e'$ 替换 $e^*$ 得到权重更小的生成树，矛盾。}
+
+\section{Kruskal 算法完整运行例子}
+
+考虑 6 节点图，节点 $\{A,B,C,D,E,F\}$，边及权重：$A\text{-}B:4$，$A\text{-}C:2$，$B\text{-}C:1$，$B\text{-}D:5$，$C\text{-}D:8$，$C\text{-}E:10$，$D\text{-}E:2$，$D\text{-}F:6$，$E\text{-}F:3$。
+
+\textbf{边按权重排序：} $B\text{-}C:1$，$A\text{-}C:2$，$D\text{-}E:2$，$E\text{-}F:3$，$A\text{-}B:4$，$B\text{-}D:5$，$D\text{-}F:6$，$C\text{-}D:8$，$C\text{-}E:10$。
+
+\begin{center}
+\begin{tabular}{@{}clll@{}}
+\toprule
+步骤 & 考虑的边 & 并查集状态（各连通块） & 是否加入 MST \\
+\midrule
+1 & $B\text{-}C:1$ & $\{A\},\{B,C\},\{D\},\{E\},\{F\}$ & 加入 \\
+2 & $A\text{-}C:2$ & $\{A,B,C\},\{D\},\{E\},\{F\}$ & 加入 \\
+3 & $D\text{-}E:2$ & $\{A,B,C\},\{D,E\},\{F\}$ & 加入 \\
+4 & $E\text{-}F:3$ & $\{A,B,C\},\{D,E,F\}$ & 加入 \\
+5 & $A\text{-}B:4$ & $\{A,B,C\},\{D,E,F\}$ & 跳过（同一连通块） \\
+6 & $B\text{-}D:5$ & $\{A,B,C,D,E,F\}$ & 加入 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{最终 MST 边集：} $\{B\text{-}C, A\text{-}C, D\text{-}E, E\text{-}F, B\text{-}D\}$，总权重 $= 1+2+2+3+5 = 13$。
+
+\section{Prim 算法完整运行例子}
+
+同一图，从节点 $A$ 出发。维护集合 $S$（已在 MST 中的节点）和优先队列（按边权排序的候选边）。
+
+\begin{center}
+\begin{tabular}{@{}cll@{}}
+\toprule
+步骤 & 加入 MST 的节点（及所用边） & 优先队列中的候选边（节点：最小代价） \\
+\midrule
+初始 & $A$（起点） & $B:4,\ C:2$ \\
+1    & $C$（边 $A\text{-}C:2$） & $B:1\ (B\text{-}C),\ D:8,\ E:10$ \\
+2    & $B$（边 $B\text{-}C:1$） & $D:5\ (B\text{-}D),\ E:10$ \\
+3    & $D$（边 $B\text{-}D:5$） & $E:2\ (D\text{-}E),\ F:6$ \\
+4    & $E$（边 $D\text{-}E:2$） & $F:3\ (E\text{-}F)$ \\
+5    & $F$（边 $E\text{-}F:3$） & 队列空，算法结束 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+MST 同 Kruskal 结果：总权重 $13$。
+
+\section{Bor\r{u}vka 简介}
+
+Bor\r{u}vka 算法采用并行策略：在每一轮中，对每个连通块（初始时每个节点是一个块）找到离开该块的权重最小边，同时将所有这些边加入生成树（注意去除重复）。
+
+\begin{itemize}
+  \item \textbf{关键性质：} 每轮结束后，连通块数目至少减半（每次合并至少两个块）。
+  \item \textbf{轮数：} 至多 $O(\log |V|)$ 轮。
+  \item \textbf{每轮时间：} $O(|E|)$（扫描所有边，为每个块记录最轻跨越边）。
+  \item \textbf{总时间：} $O(|E| \log |V|)$，且易于并行化，适合大规模分布式计算。
+\end{itemize}
+
+\keypoint{三种 MST 算法均基于贪心思想，正确性都由割性质或环性质保证。Kruskal 排序边后用并查集，适合稀疏图；Prim 用优先队列，适合稠密图；Bor\r{u}vka 天然并行，适合分布式场景。对于带权无向连通图，这三种算法均能在多项式时间内找到 MST。}
+
+\lecture{04.pdf}{算法验证基础}{模型检测、时序逻辑、有限与无限状态系统}
+
+\section{动机——为什么测试不够}
+
+\begin{remark}
+直觉：一个程序的输入空间可能是无限的（例如，接受任意整数输入的程序）。测试用例无论多么精心设计，都只能覆盖有限个输入，因此无法保证程序在\emph{所有}输入下都正确。形式化验证的目标是用数学推理给出"对所有可能执行都满足性质 $P$"这样的保证。
+\end{remark}
+
+考虑并发程序中的竞态条件：即使运行一百万次测试都没有触发错误，也不能排除某种极罕见的线程调度顺序导致死锁。形式化验证通过穷举所有可能的状态和执行路径来消除这种不确定性。
+
+\section{形式化验证的三条路线}
+
+\begin{enumerate}
+  \item \textbf{模型检测（Model Checking）：} 将系统建模为有限状态机（或更丰富的模型），将性质表示为时序逻辑公式，自动穷举验证所有状态。优点：全自动，能给出反例；缺点：状态爆炸问题。
+  \item \textbf{定理证明（Theorem Proving）：} 用交互式证明辅助工具（如 Coq、Isabelle、Lean）手工构造数学证明。优点：可处理无限状态；缺点：需大量人工投入。
+  \item \textbf{类型系统（Type Systems）：} 通过静态类型检查自动排除一类错误（如类型错误、空指针解引用）。优点：轻量，编译时完成；缺点：只能处理特定性质。
+\end{enumerate}
+
+\section{Kripke 结构}
+
+\begin{definition}
+\textbf{Kripke 结构} $M = (S, S_0, R, L)$ 由以下四部分组成：
+\begin{itemize}
+  \item $S$：有限状态集合。
+  \item $S_0 \subseteq S$：初始状态集合。
+  \item $R \subseteq S \times S$：转移关系（要求对每个状态至少有一个后继，即无死锁状态）。
+  \item $L: S \to 2^{AP}$：标记函数，给每个状态标注在该状态成立的原子命题集合，$AP$ 是原子命题集。
+\end{itemize}
+\end{definition}
+
+\textbf{具体例子：交通灯系统。}
+
+状态集 $S = \{\text{红}, \text{绿}, \text{黄}\}$，初始状态 $S_0 = \{\text{红}\}$，转移 $R$：红$\to$绿$\to$黄$\to$红，原子命题 $AP = \{\mathit{safe}, \mathit{moving}\}$。
+
+\begin{center}
+\begin{tabular}{@{}lll@{}}
+\toprule
+状态 & 成立的原子命题 & 含义 \\
+\midrule
+红 & $\{\mathit{safe}\}$       & 行人安全，车辆停止 \\
+绿 & $\{\mathit{moving}\}$     & 车辆行驶，行人禁行 \\
+黄 & $\{\}$                    & 过渡状态 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{itemize}
+  \item \textbf{安全性（Safety）：} 系统永远不会进入某个"坏"状态，例如"红灯和绿灯不会同时成立"。形式上：$AG(\neg(\mathit{safe} \wedge \mathit{moving}))$。
+  \item \textbf{活性（Liveness）：} 某件好事最终一定会发生，例如"每次变红之后，最终一定会变绿"。形式上：$AG(\mathit{safe} \Rightarrow AF\, \mathit{moving})$。
+\end{itemize}
+
+\section{时序逻辑 CTL}
+
+\textbf{计算树逻辑（CTL）} 在 Kripke 结构的\emph{计算树}（将状态图展开为无限树）上描述性质。
+
+\textbf{路径量词：}
+\begin{itemize}
+  \item $A\varphi$：对\emph{所有}从当前状态出发的路径，$\varphi$ 成立（"必然"）。
+  \item $E\varphi$：\emph{存在}从当前状态出发的某条路径，$\varphi$ 成立（"可能"）。
+\end{itemize}
+
+\textbf{时间算子}（作用于一条路径）：
+\begin{itemize}
+  \item $X\varphi$：在路径的\emph{下一步}（neXt），$\varphi$ 成立。
+  \item $F\varphi$：在路径的\emph{将来某步}（Finally），$\varphi$ 成立。
+  \item $G\varphi$：在路径的\emph{所有将来步骤}（Globally），$\varphi$ 始终成立。
+  \item $\varphi\, U\, \psi$：$\varphi$ 持续成立，\emph{直到}（Until）$\psi$ 成立。
+\end{itemize}
+
+CTL 要求路径量词与时间算子总是成对出现（如 $AG, EF, AU, EU$ 等）。
+
+\textbf{自然语言翻译举例：}
+
+\begin{center}
+\begin{tabular}{@{}ll@{}}
+\toprule
+CTL 公式 & 自然语言含义 \\
+\midrule
+$AG(\neg \mathit{bad})$ & 系统在所有路径的所有时刻永远不会进入坏状态（安全性） \\
+$AG(\mathit{req} \Rightarrow AF\, \mathit{ack})$ & 每次请求最终都会在所有路径上得到应答（响应性） \\
+$EF\, \mathit{goal}$ & 存在某条执行路径，使得系统最终能到达目标状态（可达性） \\
+$EG\, \mathit{run}$ & 存在某条无限执行路径，使系统可以永远持续运行（非终止可能性） \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{CTL 模型检测算法}
+
+CTL 模型检测的核心思想是：对公式 $\varphi$ 递归地计算满足 $\varphi$ 的状态集合 $\llbracket \varphi \rrbracket \subseteq S$。
+
+\textbf{三个核心算子的计算方法：}
+
+\begin{itemize}
+  \item $\llbracket EX\, \varphi \rrbracket$：满足"存在某后继状态满足 $\varphi$"的状态集合。
+    \[
+      \llbracket EX\, \varphi \rrbracket = \{s \in S \mid \exists s'.\; (s,s') \in R \wedge s' \in \llbracket \varphi \rrbracket\}
+    \]
+    实现：计算 $\llbracket \varphi \rrbracket$ 的前驱状态集合。
+
+  \item $\llbracket E[\varphi\, U\, \psi] \rrbracket$：满足"存在路径，$\varphi$ 持续到某步 $\psi$ 成立"的状态。
+    不动点迭代：初始 $W_0 = \llbracket \psi \rrbracket$，迭代 $W_{i+1} = W_i \cup (\llbracket \varphi \rrbracket \cap \llbracket EX\, W_i \rrbracket)$，直到收敛。
+
+  \item $\llbracket EG\, \varphi \rrbracket$：满足"存在一条无限路径，$\varphi$ 在路径上始终成立"的状态。
+    最大不动点：初始 $W_0 = \llbracket \varphi \rrbracket$，迭代 $W_{i+1} = W_i \cap \llbracket EX\, W_i \rrbracket$，直到收敛。
+\end{itemize}
+
+其余算子均可用这三个算子表达（例如 $AF\, \varphi \equiv \neg EG\, \neg\varphi$）。总时间复杂度：$O(|\varphi| \cdot (|S| + |R|))$，其中 $|\varphi|$ 是公式大小。
+
+\section{扩展模型简介}
+
+实际系统往往状态数目极大，是模型检测的主要瓶颈（\textbf{状态爆炸问题}）。针对不同场景有多种扩展模型：
+
+\begin{itemize}
+  \item \textbf{下推系统（Pushdown System）：} 用于建模带调用栈的递归程序，状态包括控制位置和栈内容，状态空间无限，但某些性质仍可判定。
+  \item \textbf{时间自动机（Timed Automata）：} 在有限状态机中加入实数时钟变量，能描述实时性约束（如"请求 5 毫秒内必须响应"），时间可达性问题可判定。
+  \item \textbf{Petri 网（Petri Net）：} 用于建模并发系统中的资源分配与同步，通过"库所—变迁"结构自然表达并发，可达性问题一般难以判定但特殊情况有多项式算法。
+\end{itemize}
+
+\keypoint{模型检测提供了一种自动化的形式化验证方法：将系统建模为 Kripke 结构，将性质写成 CTL 公式，算法自动判定所有状态是否满足该性质，并在不满足时给出反例路径。关键挑战是应对状态爆炸——实际工具使用 BDD（二叉决策图）或 SAT/SMT 求解器等符号化方法来压缩状态表示。}
+
+\lecture{05.pdf}{序列比对与动态规划}{DAG最短路、LIS、编辑距离、Hirschberg、LCS}
+
+\section{动机}
+
+DNA 序列比对是生物信息学的核心问题：给定两段 DNA 序列（由 A/T/C/G 构成的字符串），衡量它们有多"相似"，从而推断物种进化关系或找出功能相似的基因片段。拼写纠错的本质相同：将用户输入的单词与词典中的单词比较，找出编辑代价最小的候选词。
+
+\begin{remark}
+直觉：两个字符串的相似度可以量化为"把一个串变成另一个串所需的最少操作次数"，这就是\textbf{编辑距离}（Edit Distance）。操作包括：插入一个字符、删除一个字符、替换一个字符，每种操作代价为 1。
+\end{remark}
+
+\section{动态规划的核心思想}
+
+动态规划（DP）适用于同时具备以下两个性质的问题：
+\begin{itemize}
+  \item \textbf{最优子结构：} 问题的最优解包含子问题的最优解。
+  \item \textbf{重叠子问题：} 递归求解时，相同的子问题会被反复计算。
+\end{itemize}
+
+\textbf{为什么暴力搜索太慢：} 对两个长度为 $m$ 和 $n$ 的字符串，所有可能的比对方式数量是指数级的（大致为 $\binom{m+n}{m}$），暴力枚举不可行。
+
+\textbf{DAG 视角：} 子问题天然形成一个 DAG——每个子问题是一个节点，依赖关系是有向边，且依赖方向不形成环（子问题规模严格递减）。按照 DAG 的拓扑序（即子问题规模从小到大）依次计算，每个子问题只需计算一次，总时间 = 子问题数量 $\times$ 每个子问题的计算时间。
+
+\section{编辑距离}
+
+\begin{definition}
+字符串 $X = x_1 x_2 \cdots x_m$ 与 $Y = y_1 y_2 \cdots y_n$ 的\textbf{编辑距离} $\mathrm{ed}(X, Y)$ 是将 $X$ 变为 $Y$ 所需的最少插入/删除/替换操作次数，每种操作代价为 1。
+\end{definition}
+
+\textbf{DP 递推式：} 设 $\mathrm{dp}[i][j]$ 为 $X[1..i]$ 与 $Y[1..j]$ 的编辑距离。
+
+\begin{align*}
+  \mathrm{dp}[0][j] &= j \quad (0 \leq j \leq n), \\
+  \mathrm{dp}[i][0] &= i \quad (0 \leq i \leq m), \\
+  \mathrm{dp}[i][j] &= \begin{cases}
+    \mathrm{dp}[i-1][j-1] & \text{若 } x_i = y_j,\\
+    1 + \min\bigl(\mathrm{dp}[i-1][j],\; \mathrm{dp}[i][j-1],\; \mathrm{dp}[i-1][j-1]\bigr) & \text{若 } x_i \neq y_j.
+  \end{cases}
+\end{align*}
+
+三项分别对应：删除 $x_i$（从上方）、插入 $y_j$（从左方）、替换 $x_i$ 为 $y_j$（从左上方）。
+
+\textbf{完整 DP 表格：} $X = \texttt{SUNNY}$，$Y = \texttt{SNOWY}$。表头行对应 $Y$（加空串前缀），表头列对应 $X$（加空串前缀）。
+
+\begin{center}
+\begin{tabular}{@{}c|ccccccc@{}}
+\toprule
+       & $\varepsilon$ & S & N & O & W & Y \\
+\midrule
+$\varepsilon$ & 0 & 1 & 2 & 3 & 4 & 5 \\
+S      & 1 & 0 & 1 & 2 & 3 & 4 \\
+U      & 2 & 1 & 1 & 2 & 3 & 4 \\
+N      & 3 & 2 & 1 & 2 & 3 & 4 \\
+N      & 4 & 3 & 2 & 2 & 3 & 4 \\
+Y      & 5 & 4 & 3 & 3 & 3 & 3 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+编辑距离为 $\mathrm{dp}[5][5] = 3$。
+
+\textbf{回溯最优对齐：} 沿 DP 表格从右下角往左上角回溯（选代价最小的前驱），得到一个最优对齐方案：
+
+\begin{center}
+\begin{tabular}{@{}ccccccc@{}}
+$S$ & $-$ & $U$ & $N$ & $N$ & $Y$ & \\
+$S$ & $N$ & $-$ & $O$ & $W$ & $Y$ & \\
+\end{tabular}
+\end{center}
+
+（删除 $U$，将 $N\to O$，将 $N\to W$，共 3 次操作。实际上，将第二个 $N$ 替换为 $O$，第三个替换为 $W$，删去第一个 $U$；或其他等价方案。）
+
+\section{最长公共子序列 LCS}
+
+\begin{definition}
+字符串 $X$ 和 $Y$ 的\textbf{最长公共子序列（LCS）} 是同时为 $X$ 的子序列和 $Y$ 的子序列的最长字符串（子序列允许不连续但需保持相对顺序）。
+\end{definition}
+
+\textbf{DP 状态与递推：} 设 $L[i][j]$ 为 $X[1..i]$ 与 $Y[1..j]$ 的 LCS 长度：
+\[
+  L[i][j] = \begin{cases}
+    L[i-1][j-1] + 1 & \text{若 } x_i = y_j, \\
+    \max(L[i-1][j],\; L[i][j-1]) & \text{若 } x_i \neq y_j.
+  \end{cases}
+\]
+
+\textbf{简要例子：} $X = \texttt{ABCBDAB}$，$Y = \texttt{BDCAB}$。LCS 长度为 4，一个 LCS 为 $\texttt{BCAB}$（或 $\texttt{BDAB}$）。
+
+\begin{remark}
+LCS 与编辑距离的关系：若只允许插入和删除操作（不允许替换），编辑距离恰为 $(|X| - L) + (|Y| - L)$，其中 $L$ 是 LCS 长度。
+\end{remark}
+
+\section{Hirschberg 算法}
+
+\begin{remark}
+直觉：朴素 DP 需要 $O(mn)$ 空间存储整张 DP 表。Hirschberg 算法用分治避免存储整张表，只需 $O(m+n)$ 空间，同时保持 $O(mn)$ 时间。
+\end{remark}
+
+\textbf{核心观察：} 计算 $\mathrm{dp}[i][\cdot]$（第 $i$ 行）只需第 $i-1$ 行，故只需 $O(n)$ 空间可以计算出 DP 表的任意一行。
+
+\textbf{算法思路：}
+\begin{enumerate}
+  \item 取 $X$ 的中间位置 $i^* = \lfloor m/2 \rfloor$。
+  \item 用正向 DP 计算 $\mathrm{dp}[i^*][\cdot]$（$X[1..i^*]$ 对 $Y[1..j]$ 的编辑距离，$j=0,\ldots,n$），只需 $O(n)$ 空间。
+  \item 用反向 DP 计算 $\mathrm{dp}'[i^*][\cdot]$（$X[i^*+1..m]$ 对 $Y[j+1..n]$ 的编辑距离，$j=0,\ldots,n$），只需 $O(n)$ 空间。
+  \item 找出使 $\mathrm{dp}[i^*][j^*] + \mathrm{dp}'[i^*][j^*]$ 最小的切割点 $j^*$。
+  \item 递归对 $(X[1..i^*], Y[1..j^*])$ 和 $(X[i^*+1..m], Y[j^*+1..n])$ 求解。
+\end{enumerate}
+
+\textbf{复杂度分析：} 设 $T(m,n)$ 为总时间。每层递归处理长度为 $m$ 和 $n$ 的两个字符串，做两次 $O(mn)$ 的 DP（正向和反向），然后递归两个子问题（总长度减半）：$T(m,n) \leq 2cmn + T(m/2, n) + T(m/2, n) $，解得 $T(m,n) = O(mn)$。空间只需维护当前两行，递归栈深度 $O(\log m)$，每层 $O(n)$，总空间 $O(n \log m) = O(m+n)$（更精细分析给出 $O(m+n)$）。
+
+\pitfall{常见错误：混淆\textbf{子序列}（subsequence）和\textbf{子串}（substring）。子串要求字符在原串中连续出现，而子序列只需保持相对顺序但可以不连续。例如，$\texttt{ACE}$ 是 $\texttt{ABCDE}$ 的子序列但不是子串；$\texttt{BCD}$ 既是子序列也是子串。LCS 是子序列问题；"最长公共子串"是不同的问题，有 $O(mn)$ DP 解法，亦可用后缀数组在 $O((m+n)\log(m+n))$ 时间解决。}
+
+\lecture{06.pdf}{负权最短路}{Bellman-Ford、负环、可靠路径、全源最短路}
+
+\section{动机——Dijkstra 的局限}
+
+\begin{remark}
+Dijkstra 正确性的关键假设是：一旦某节点被"确定"（加入集合 $S$），其距离不会再被更新。这依赖于所有边权非负——若所有边权 $\geq 0$，则从未确定节点出发的路径只会更长，永远不会"绕弯"缩短已确定节点的距离。若存在负权边，此假设失效。
+\end{remark}
+
+两个重要的负权场景：
+\begin{itemize}
+  \item \textbf{金融套利：} 货币兑换汇率可以建模为带权有向图（对数化后可能产生负权边），若存在负权环则意味着可以无限循环套利。
+  \item \textbf{差分约束系统：} 线性不等式组 $x_j - x_i \leq w_{ij}$ 可转化为最短路问题，其中权重可以为负。
+\end{itemize}
+
+\section{Bellman-Ford 算法}
+
+\begin{remark}
+直觉："放松所有边，重复 $|V|-1$ 次"。关键不变式：第 $k$ 轮结束后，对所有节点 $v$，$d[v]$ 等于从源点 $s$ 到 $v$ 的\emph{至多使用 $k$ 条边}的最短路长度。因为最短路（若无负环）最多使用 $|V|-1$ 条边，故 $|V|-1$ 轮后所有距离均已收敛。
+\end{remark}
+
+\begin{lstlisting}[language=Python, caption={Bellman-Ford 伪代码}]
+def BellmanFord(G, s):
+    for v in G.V:
+        d[v] = infinity
+    d[s] = 0
+    for k in range(1, |G.V|):        # 共 |V|-1 轮
+        for (u, v, w) in G.E:        # 枚举所有边
+            if d[u] + w < d[v]:
+                d[v] = d[u] + w
+    # 检测负环
+    for (u, v, w) in G.E:
+        if d[u] + w < d[v]:
+            return "存在负环"
+    return d
+\end{lstlisting}
+
+\textbf{完整 5 节点运行例子：} 节点 $\{1,2,3,4,5\}$，边：$1\to2:6$，$1\to3:7$，$2\to3:8$，$2\to4:-4$，$2\to5:5$，$3\to4:9$，$3\to5:-3$，$4\to1:2$，$5\to4:7$，源点 $s=1$。
+
+\begin{center}
+\begin{tabular}{@{}cccccc@{}}
+\toprule
+轮次 & $d[1]$ & $d[2]$ & $d[3]$ & $d[4]$ & $d[5]$ \\
+\midrule
+初始     & 0 & $\infty$ & $\infty$ & $\infty$ & $\infty$ \\
+轮次 1   & 0 & 6        & 7        & 2        & 4        \\
+轮次 2   & 0 & 6        & 7        & 2        & 4        \\
+轮次 3   & 0 & 6        & 7        & 2        & 4        \\
+轮次 4   & 0 & 6        & 7        & 2        & 4        \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+最终最短路：$d[1]=0, d[2]=6, d[3]=7, d[4]=2$ （路径 $1\to2\to4$，长度 $6+(-4)=2$），$d[5]=4$（路径 $1\to3\to5$，长度 $7+(-3)=4$）。
+
+\section{负环检测}
+
+\textbf{检测方法：} 在 $|V|-1$ 轮 Bellman-Ford 结束后，额外运行第 $|V|$ 轮：若仍有边可以松弛（即存在边 $(u,v,w)$ 使 $d[u]+w < d[v]$），则图中存在负权环。
+
+\proofidea{若不存在负环，则最短路最多使用 $|V|-1$ 条边，$|V|-1$ 轮后所有距离已收敛，第 $|V|$ 轮不会再松弛任何边。若存在负环，则沿负环绕圈的路径长度可以无限减小，故第 $|V|$ 轮（以及之后每轮）都还能松弛。}
+
+\textbf{找出具体负环：} 若第 $|V|$ 轮中某条边 $(u,v)$ 被松弛，则沿前驱指针 $\mathrm{parent}[\cdot]$ 从 $u$ 回溯 $|V|$ 步，由鸽巢原理必经过某个重复节点，该节点即为负环上的一个节点，沿前驱指针绕一圈即可找出完整负环。
+
+\section{Floyd-Warshall}
+
+\begin{remark}
+直觉：\textbf{全源最短路}问题需要计算所有节点对 $(i,j)$ 之间的最短路。Floyd-Warshall 的思路：逐步"放宽"允许经过的中间节点集合。设 $D^{(k)}[i][j]$ 为仅允许经过节点 $\{1,\ldots,k\}$ 作为中间节点时，$i$ 到 $j$ 的最短路长度。
+\end{remark}
+
+\textbf{递推式：}
+\[
+  D^{(k)}[i][j] = \min\!\bigl(D^{(k-1)}[i][j],\; D^{(k-1)}[i][k] + D^{(k-1)}[k][j]\bigr).
+\]
+
+含义：要么不经过节点 $k$（直接用 $D^{(k-1)}[i][j]$），要么经过节点 $k$（先到 $k$，再从 $k$ 到 $j$）。
+
+\textbf{完整 4 节点例子：} 节点 $\{1,2,3,4\}$，边：$1\to2:3$，$2\to4:1$，$1\to3:8$，$3\to2:-4$，$4\to3:2$，其余对 $(i,j)$ 为 $\infty$（$i\ne j$），对角线为 $0$。
+
+$D^{(0)}$（初始邻接矩阵，$\infty$ 表示无直接边）：
+\begin{center}
+\begin{tabular}{@{}c|cccc@{}}
+\toprule
+$D^{(0)}$ & 1 & 2 & 3 & 4 \\
+\midrule
+1 & 0        & 3        & 8        & $\infty$ \\
+2 & $\infty$ & 0        & $\infty$ & 1        \\
+3 & $\infty$ & $-4$     & 0        & $\infty$ \\
+4 & $\infty$ & $\infty$ & 2        & 0        \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+$D^{(1)}$（允许经过节点 1）：节点 1 没有入边（所有 $D^{(0)}[i][1] = \infty$，$i\ne 1$），故 $D^{(1)} = D^{(0)}$（无变化）。
+
+$D^{(2)}$（允许经过节点 2，即可以利用路径 $i\to2\to j$）：
+\begin{center}
+\begin{tabular}{@{}c|cccc@{}}
+\toprule
+$D^{(2)}$ & 1 & 2 & 3 & 4 \\
+\midrule
+1 & 0        & 3        & 8        & 4        \\
+2 & $\infty$ & 0        & $\infty$ & 1        \\
+3 & $\infty$ & $-4$     & 0        & $-3$     \\
+4 & $\infty$ & $\infty$ & 2        & 0        \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+（新增：$D[1][4] = D[1][2]+D[2][4] = 3+1=4$；$D[3][4]=D[3][2]+D[2][4]=-4+1=-3$。）
+
+$D^{(3)}$（允许经过节点 3，即可以利用路径 $i\to3\to j$）：
+\begin{center}
+\begin{tabular}{@{}c|cccc@{}}
+\toprule
+$D^{(3)}$ & 1 & 2 & 3 & 4 \\
+\midrule
+1 & 0        & 3        & 8        & 4        \\
+2 & $\infty$ & 0        & $\infty$ & 1        \\
+3 & $\infty$ & $-4$     & 0        & $-3$     \\
+4 & $\infty$ & $-2$     & 2        & 0        \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+（新增：$D[4][2]=D[4][3]+D[3][2]=2+(-4)=-2$。）
+
+$D^{(4)}$（允许经过节点 4，即可以利用路径 $i\to4\to j$）：
+\begin{center}
+\begin{tabular}{@{}c|cccc@{}}
+\toprule
+$D^{(4)}$ & 1 & 2 & 3 & 4 \\
+\midrule
+1 & 0        & 3        & 6        & 4        \\
+2 & $\infty$ & 0        & 3        & 1        \\
+3 & $\infty$ & $-4$     & 0        & $-3$     \\
+4 & $\infty$ & $-2$     & 2        & 0        \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+（新增：$D[1][3]=D[1][4]+D[4][3]=4+2=6<8$；$D[2][3]=D[2][4]+D[4][3]=1+2=3$。）
+
+\complexity{Floyd-Warshall 时间复杂度为 $\Theta(|V|^3)$，空间 $\Theta(|V|^2)$（利用原地更新只需一个矩阵）。适用于稠密图和全源最短路需求，实现极为简洁。若需要检测负环，只需检查最终矩阵的对角线是否有负值。}
+
+\keypoint{Bellman-Ford 和 Floyd-Warshall 都能处理负权边。Bellman-Ford 适合单源情形，时间 $O(|V||E|)$；Floyd-Warshall 适合全源情形，时间 $O(|V|^3)$。两者都能检测负环。若图无负权边，Dijkstra（单源 $O((|V|+|E|)\log|V|)$）或对每个源跑 Dijkstra（全源 $O(|V|(|V|+|E|)\log|V|)$）通常更快。}
+
+\lecture{07.pdf}{树宽}{树上的多项式算法、树分解、部分k-树}
+
+\section{动机}
+
+许多在一般图上 $\NP$-hard 的问题（如独立集、图着色、哈密顿路）在\emph{树}上可以用线性时间动态规划解决。这启发了一个自然的问题：是否存在一种度量，衡量一个图"有多像树"？若一个图"接近树"，能否也高效求解这些困难问题？
+
+\begin{remark}
+直觉：树是最简单的连通图——没有环，结构完全"线性化"。\textbf{树宽（Treewidth）} 正是刻画图的树状程度的参数：树宽越小，图越接近树；树宽越大，图越"纠缠"（如完全图树宽最大）。固定树宽后，许多 $\NP$-hard 问题变成多项式（甚至线性）时间可解。
+\end{remark}
+
+\section{树上独立集 DP}
+
+在根树（有根的无向树）上求最大独立集，可以用 DP 在 $O(|V|)$ 时间内解决。
+
+\textbf{状态定义：} 对树中每个节点 $v$，定义：
+\begin{itemize}
+  \item $\mathrm{IN}[v]$：以 $v$ 为根的子树中，\emph{包含} $v$ 的最大独立集大小。
+  \item $\mathrm{OUT}[v]$：以 $v$ 为根的子树中，\emph{不包含} $v$ 的最大独立集大小。
+\end{itemize}
+
+\textbf{递推：} 设 $v$ 的孩子节点集合为 $C(v)$：
+\[
+  \mathrm{IN}[v] = 1 + \sum_{c \in C(v)} \mathrm{OUT}[c], \qquad
+  \mathrm{OUT}[v] = \sum_{c \in C(v)} \max(\mathrm{IN}[c], \mathrm{OUT}[c]).
+\]
+
+最终答案为 $\max(\mathrm{IN}[\text{root}], \mathrm{OUT}[\text{root}])$。
+
+\textbf{小例子：} 考虑以下 7 节点有根树，根为节点 1：
+
+\begin{itemize}
+  \item 节点 1 的孩子：$\{2, 3\}$
+  \item 节点 2 的孩子：$\{4, 5\}$
+  \item 节点 3 的孩子：$\{6, 7\}$
+  \item 节点 $4,5,6,7$：叶节点
+\end{itemize}
+
+计算过程（从叶到根）：
+
+\begin{center}
+\begin{tabular}{@{}ccc@{}}
+\toprule
+节点 $v$ & $\mathrm{IN}[v]$ & $\mathrm{OUT}[v]$ \\
+\midrule
+4（叶）& 1 & 0 \\
+5（叶）& 1 & 0 \\
+6（叶）& 1 & 0 \\
+7（叶）& 1 & 0 \\
+2 & $1+\mathrm{OUT}[4]+\mathrm{OUT}[5]=1+0+0=1$ & $\max(1,0)+\max(1,0)=2$ \\
+3 & $1+\mathrm{OUT}[6]+\mathrm{OUT}[7]=1+0+0=1$ & $\max(1,0)+\max(1,0)=2$ \\
+1 & $1+\mathrm{OUT}[2]+\mathrm{OUT}[3]=1+2+2=5$ & $\max(1,2)+\max(1,2)=4$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+最大独立集大小为 $\max(\mathrm{IN}[1], \mathrm{OUT}[1]) = \max(5,4) = 5$（选节点 $1,4,5,6,7$）。
+
+\section{树分解}
+
+\begin{remark}
+直觉：树分解把图"拆"成一袋袋顶点挂在树上。每个袋子（bag）是一个顶点集合，代表图的一个"局部界面"。若树宽小，则每个袋子都很小，可以在每个袋子上高效地做 DP。
+\end{remark}
+
+\begin{definition}
+图 $G = (V, E)$ 的\textbf{树分解} 是一个二元组 $(T, \{X_t\}_{t \in V(T)})$，其中 $T$ 是一棵树，$X_t \subseteq V$ 是每个树节点 $t$ 对应的\textbf{袋子}，满足以下三个条件：
+\begin{enumerate}
+  \item \textbf{覆盖条件：} $\bigcup_{t \in V(T)} X_t = V$（每个图顶点至少在一个袋子中）。
+  \item \textbf{边条件：} 对 $G$ 的每条边 $(u,v) \in E$，存在某个树节点 $t$ 使得 $u, v \in X_t$（每条边的两端在某个共同袋子中）。
+  \item \textbf{连通条件（Helly 性质）：} 对每个图顶点 $v \in V$，包含 $v$ 的袋子集合 $\{t \in V(T) \mid v \in X_t\}$ 在树 $T$ 中构成一个连通子树。
+\end{enumerate}
+\textbf{宽度} 定义为 $\max_{t \in V(T)} |X_t| - 1$。图 $G$ 的\textbf{树宽} $\mathrm{tw}(G)$ 是所有树分解中最小的宽度。
+\end{definition}
+
+\section{具体图的树分解例子}
+
+考虑 6 节点图：节点 $\{1,2,3,4,5,6\}$，边集包含 $1\text{-}2, 2\text{-}3, 3\text{-}4, 4\text{-}5, 5\text{-}6, 6\text{-}1$（六环）以及对角线 $1\text{-}4$。
+
+一个树分解（宽度为 2）：
+
+\begin{itemize}
+  \item 树节点 $T_1$，袋子 $X_1 = \{1, 2, 3\}$
+  \item 树节点 $T_2$，袋子 $X_2 = \{1, 3, 4\}$
+  \item 树节点 $T_3$，袋子 $X_3 = \{1, 4, 5\}$
+  \item 树节点 $T_4$，袋子 $X_4 = \{1, 5, 6\}$
+  \item 树边：$T_1 - T_2 - T_3 - T_4$（路径形状）
+\end{itemize}
+
+\textbf{验证：}
+\begin{itemize}
+  \item 覆盖：$\{1,2,3\}\cup\{1,3,4\}\cup\{1,4,5\}\cup\{1,5,6\} = \{1,2,3,4,5,6\}$。\checkmark
+  \item 边条件：$1\text{-}2,2\text{-}3,1\text{-}3 \subseteq X_1$；$1\text{-}3,3\text{-}4,1\text{-}4 \subseteq X_2$；$1\text{-}4,4\text{-}5,1\text{-}5 \subseteq X_3$；$1\text{-}5,5\text{-}6,1\text{-}6 \subseteq X_4$。\checkmark
+  \item 连通条件：节点 1 出现在所有袋子中（构成路径，连通）；节点 3 出现在 $T_1,T_2$ 中（相邻，连通）；其余节点验证类似。\checkmark
+\end{itemize}
+
+宽度 $= \max(3,3,3,3)-1 = 2$。
+
+\section{树宽的性质}
+
+\begin{proposition}
+树的树宽为 1。
+\end{proposition}
+
+\proofidea{对树 $T$ 本身做树分解：选取 $T$ 的任意一条边 $(u,v)$ 对应一个袋子 $\{u,v\}$，将 $T$ 的所有边各对应一个袋子，这些袋子之间的连接关系即构成一棵树（与 $T$ 本身对应的"细分"结构）。每个袋子大小为 2，宽度为 $2-1=1$。}
+
+\begin{proposition}
+完全图 $K_n$ 的树宽为 $n-1$。
+\end{proposition}
+
+\proofidea{下界：$K_n$ 的任意树分解中，考虑任意两个相邻袋子 $X_s, X_t$（树边 $(s,t)$）。删去这条树边将树分为两棵子树，分别覆盖某些图顶点集合 $A$ 和 $B$，满足 $A \cup B = V$，$A \cap B \subseteq X_s \cap X_t$。由于 $K_n$ 中 $A$ 和 $B$ 中的所有顶点之间都有边，需要在某个袋子中同时包含 $A$ 中所有顶点和 $B$ 中所有顶点；由 Helly 性质（连通条件），$X_s \cap X_t$ 必须包含"分隔"两侧的所有顶点，最终推得某个袋子大小至少为 $n$，宽度至少为 $n-1$。上界：$K_n$ 的一个树分解是单个袋子 $\{1,\ldots,n\}$（仅一个树节点），宽度恰为 $n-1$。}
+
+总结：树宽为 1 当且仅当图是树（或森林）；树宽越小，图的结构越像树，越适合用树分解上的 DP 求解 $\NP$-hard 问题。
+
+\section{树分解上的 DP}
+
+\textbf{平滑树分解（Nice Tree Decomposition）：} 为便于 DP，将树分解整理为标准形式，树中每个节点属于以下四种类型之一：
+\begin{itemize}
+  \item \textbf{叶节点：} 无孩子，袋子大小为 1。
+  \item \textbf{引入节点（Introduce）：} 有一个孩子 $c$，$X_t = X_c \cup \{v\}$（比孩子袋子多一个顶点 $v$）。
+  \item \textbf{遗忘节点（Forget）：} 有一个孩子 $c$，$X_t = X_c \setminus \{v\}$（比孩子袋子少一个顶点 $v$）。
+  \item \textbf{合并节点（Join）：} 有两个孩子 $c_1, c_2$，$X_t = X_{c_1} = X_{c_2}$（袋子相同）。
+\end{itemize}
+
+\textbf{宽度 $k$ 的树分解上的独立集 DP：}
+
+对每个树节点 $t$，枚举袋子 $X_t$ 的所有 $2^{|X_t|} \leq 2^{k+1}$ 种子集 $S \subseteq X_t$，记录 $\mathrm{dp}[t][S]$ = 以 $S$ 作为 $X_t$ 中被选入独立集的顶点时，$t$ 的子树所能获得的最大独立集大小（满足 $S$ 在 $G$ 中是独立集，且所有与子树内部顶点有边的 $X_t$ 中的顶点选择与 $S$ 兼容）。
+
+四种节点类型各有 $O(2^{k+1})$ 种状态，每种状态计算时间 $O(2^{k+1})$（合并节点）或 $O(1)$（其余类型），故每个树节点计算时间 $O(4^{k+1})$，树节点总数 $O(|V|)$，总时间为：
+
+\complexity{宽度为 $k$ 的树分解上，独立集问题可在 $O(4^k \cdot |V|)$ 时间内解决。更一般地，若问题的状态空间在每个袋子上可以用 $f(k)$ 种赋值表示，则总时间为 $O(f(k) \cdot |V|)$。固定 $k$（即树宽为常数），这是关于 $|V|$ 的多项式时间算法。}
+
+\keypoint{树宽是衡量图结构复杂度的核心参数。树的树宽为 1，完全图 $K_n$ 的树宽为 $n-1$。固定树宽 $k$ 后，独立集、图着色、哈密顿路等 $\NP$-hard 问题都有 $f(k) \cdot \poly(|V|)$ 时间算法，属于固定参数可处理（FPT）。这正是参数化复杂度理论的核心思想：即使一个问题整体是 $\NP$-hard，只要其"复杂度参数"（如树宽）较小，问题仍可高效解决。}
+
+% ============================================================
+% Ch8-Ch13 扩充笔记：最大流、Ford-Fulkerson扩展、匹配、LP 导论、单纯形、LP 应用
+% 不含 \documentclass / preamble / \begin{document}
+% ============================================================
+
+\lecture{08.pdf}{最大流与最小割}{流网络、残量网络、Ford--Fulkerson、最大流最小割}
+
+\noindent
+\textbf{为什么学这一章？}
+想象一个城市供水网络：水源 $s$、用水区 $t$，中间有容量各异的管道。问题是：每秒最多能从 $s$ 送多少水到 $t$？
+又比如互联网带宽分配、货运调度、人员匹配……这些问题有一个统一的数学模型——\emph{最大流}。
+更深刻的是，"能送出去的最大量"恰好等于"切断网络最需要代价"，这就是著名的\emph{最大流最小割定理}。
+
+% -----------------------------------------------------------
+\section{流网络}
+
+\begin{definition}[流网络]
+流网络 $G=(V,E,s,t,c)$ 是一个有向图，其中
+$s\in V$ 为源点，$t\in V$ 为汇点，每条边 $e\in E$ 有容量 $c(e)>0$。
+\end{definition}
+
+\noindent\textbf{直觉。}把每条有向边想象成一根水管：方向是水流方向，容量 $c(e)$ 是水管的最大截面积（即最大流速）。
+$s$ 是水泵，$t$ 是蓄水池，中间的节点（除 $s,t$ 外）不囤水——进来多少就必须流出多少。
+
+\begin{definition}[流]
+$s$-$t$ 流 $f$ 是一个函数 $f: E\to\mathbb{R}_{\ge 0}$，满足：
+\begin{itemize}
+  \item \textbf{容量约束}：$0\le f(e)\le c(e)$，对所有 $e\in E$。
+  \item \textbf{流守恒}：对每个 $v\ne s,t$，流入量等于流出量：
+        \[
+          \sum_{e\text{ 进入 }v}f(e) = \sum_{e\text{ 离开 }v}f(e).
+        \]
+\end{itemize}
+流值 $|f|$ 定义为从 $s$ 净流出的量：$|f|=\sum_{e\text{ 离开 }s}f(e)-\sum_{e\text{ 进入 }s}f(e)$。
+\end{definition}
+
+% -----------------------------------------------------------
+\section{割}
+
+\noindent\textbf{直觉。}若想切断 $s$ 与 $t$ 之间的联系（比如敌方想切断补给线），只需删掉一组边使所有 $s\to t$ 路径都断掉。
+\emph{最小割}就是使这一代价（被删边容量之和）最小的切法。
+
+\begin{definition}[$s$-$t$ 割]
+$s$-$t$ 割是节点集合的划分 $(S,T)$，其中 $s\in S$，$t\in T$。割容量为：
+\[
+  c(S,T)=\sum_{\substack{u\in S,\,v\in T\\(u,v)\in E}} c(u,v).
+\]
+注意：只计算从 $S$ 到 $T$ 的正向边，不计反向边。
+\end{definition}
+
+\begin{proposition}[弱对偶]
+任意流 $f$ 与任意割 $(S,T)$ 满足 $|f|\le c(S,T)$。
+\end{proposition}
+\proofidea{流守恒意味着 $|f|$ 等于跨越割的净流量（$S\to T$ 正向流减去 $T\to S$ 反向流）。而净流量不超过正向容量之和 $c(S,T)$。}
+
+% -----------------------------------------------------------
+\section{残量网络}
+
+\noindent\textbf{为什么需要残量网络？}
+贪心算法的缺陷：一旦给某条边分配了流量，就不能撤回——可能陷入次优解。
+残量网络的核心想法是引入\emph{反向边}，赋予"后悔权"：已经往 $u\to v$ 送了 $f(e)$ 单位的流，就在 $v\to u$ 上新建一条容量为 $f(e)$ 的边。
+这允许"取消之前的决定"——在反向边上送流，相当于撤回原来的流。
+
+\begin{definition}[残量网络]
+给定流网络 $G$ 和流 $f$，\emph{残量网络} $G_f=(V,E_f,s,t,c_f)$ 定义如下：
+对每条原始边 $e=(u,v)$：
+\begin{itemize}
+  \item \textbf{前向边} $(u,v)$：残量容量 $c_f(u,v)=c(e)-f(e)$（还能再送多少）。
+  \item \textbf{反向边} $(v,u)$：残量容量 $c_f(v,u)=f(e)$（可以撤回多少）。
+\end{itemize}
+只保留残量容量 $>0$ 的边。
+\end{definition}
+
+\noindent\textbf{完整运行示例。}考虑如下 4 节点网络（$s,a,b,t$）：
+\[
+  s\xrightarrow{3} a,\quad s\xrightarrow{3} b,\quad a\xrightarrow{2} t,\quad b\xrightarrow{2} t,\quad a\xrightarrow{1} b.
+\]
+
+\noindent\textbf{初始状态}：所有边流量为 $0$，$|f|=0$。
+
+\medskip
+\noindent\textbf{第一次增广}：在残量网络中找到路径 $P_1: s\to a\to t$，瓶颈容量 $\Delta_1=\min(3,2)=2$。
+增广后：$f(s,a)=2,\;f(a,t)=2$，$|f|=2$。
+
+\medskip
+\noindent\textbf{残量网络变化}（第一次增广后）：
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+边 & 原容量 & 残量容量 \\
+\midrule
+$(s,a)$ 前向 & 3 & $3-2=1$ \\
+$(a,s)$ 反向 & 0 & $2$（新增！）\\
+$(a,t)$ 前向 & 2 & $2-2=0$（饱和）\\
+$(t,a)$ 反向 & 0 & $2$（新增！）\\
+$(s,b)$ 前向 & 3 & 3 \\
+$(b,t)$ 前向 & 2 & 2 \\
+$(a,b)$ 前向 & 1 & 1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textbf{第二次增广}：在残量网络中找到路径 $P_2: s\to b\to t$，瓶颈容量 $\Delta_2=\min(3,2)=2$。
+增广后：$f(s,b)=2,\;f(b,t)=2$，$|f|=4$。
+
+\medskip
+\noindent\textbf{第三次增广尝试}：残量网络中从 $s$ 能到达 $a$（余量 $1$）和 $b$（余量 $1$，但 $(b,t)$ 已饱和）。
+路径 $s\to a\to b$：但 $(b,t)$ 余量为 $0$，无法到达 $t$。无增广路，算法终止。
+
+\noindent\textbf{最终流}：$f(s,a)=2,\;f(s,b)=2,\;f(a,t)=2,\;f(b,t)=2$，$|f|=4$。
+
+\noindent\textbf{验证最大流最小割定理}：从 $s$ 在残量图中可达节点集 $S=\{s,a\}$（因为 $(a,t)$ 饱和、$(s,b)$ 还有余量但 $(b,t)$ 饱和，$b$ 也可达 $S=\{s,a,b\}$）。
+实际上从 $s$ 可达 $\{s,a,b\}$，$T=\{t\}$。
+割 $(\{s,a,b\},\{t\})$ 的容量 $= c(a,t)+c(b,t)=2+2=4=|f|$。最大流最小割等式成立！
+
+% -----------------------------------------------------------
+\section{Ford--Fulkerson 算法}
+
+\begin{lstlisting}
+FORD-FULKERSON(G, s, t):
+  // 初始化：所有边流量为 0
+  for each edge e in E:
+      f(e) = 0
+  // 迭代增广
+  while 残量网络 Gf 中存在 s->t 路径 P:
+      Delta = min residual capacity on P   // 瓶颈容量
+      for each edge e in P:
+          if e 是原始边:
+              f(e) += Delta
+          else:  // e 是反向边 (u,v) reverse
+              f(reverse(e)) -= Delta
+  return f
+\end{lstlisting}
+
+\begin{theorem}[Ford--Fulkerson 终止性与正确性]
+若所有容量为整数，则 Ford--Fulkerson 在至多 $|f^*|$ 次增广后终止，其中 $f^*$ 是最大流。时间复杂度 $O(|V|\cdot|E|\cdot C)$，$C$ 为最大容量。
+\end{theorem}
+\proofidea{整数容量下，每次增广流值至少增加 $1$，故至多经过 $|f^*|\le |V|\cdot C$ 次增广终止。每次增广用 BFS/DFS 找路径需 $O(|E|)$。}
+
+\pitfall{Ford--Fulkerson 不指定选哪条增广路，因此不是完整定义的多项式算法。非整数容量时甚至可能不终止（如无理数容量的 Zwick 反例）。}
+
+% -----------------------------------------------------------
+\section{最大流最小割定理}
+
+\begin{theorem}[最大流最小割定理]
+下列三个条件等价：
+\begin{enumerate}
+  \item $f$ 是最大流。
+  \item 残量网络 $G_f$ 中不存在 $s$-$t$ 增广路。
+  \item 存在 $s$-$t$ 割 $(S,T)$ 使得 $|f|=c(S,T)$。
+\end{enumerate}
+\end{theorem}
+
+\proofidea{
+$(1)\Rightarrow(2)$：若有增广路，还能增大流，矛盾。
+$(2)\Rightarrow(3)$：令 $S$ 为残量图中从 $s$ 可达的节点集。由于无增广路，$t\notin S$。
+对所有从 $S$ 到 $T$ 的原始边，残量为 $0$，即流量已满；对从 $T$ 到 $S$ 的原始边，反向残量为 $0$，即原始流量为 $0$。
+因此 $|f|=\sum_{e: S\to T}c(e)-0=c(S,T)$。
+$(3)\Rightarrow(1)$：由弱对偶 $|f|\le c(S,T)$，再加上等号成立，得 $f$ 最大。
+}
+
+\noindent 用上面的例子验证：$|f|=4=c(\{s,a,b\},\{t\})=c(a,t)+c(b,t)=2+2=4$。等式成立，与定理一致。
+
+\keypoint{残量网络的反向边是 Ford--Fulkerson 能修正贪心错误的关键；最大流最小割定理是本章最重要的结论，也是 LP 强对偶在图上的特例。}
+
+% ============================================================
+
+\lecture{09.pdf}{Ford--Fulkerson 的扩展}{容量缩放、Edmonds--Karp、Dinic}
+
+\noindent
+\textbf{为什么要改进 Ford--Fulkerson？}
+原始 FF 没有指定增广路的选择策略。在最坏情况下，每次只增广 $1$ 单位，若最大流值为 $C$，则需要 $C$ 次迭代，当 $C$ 很大时极慢。
+本章介绍三种越来越聪明的选路策略，将复杂度从 $O(|E|\cdot C)$ 降低到与 $C$ 几乎无关的水平。
+
+% -----------------------------------------------------------
+\section{容量缩放算法}
+
+\noindent\textbf{直觉。}先走"大路"，再走"小路"。
+高速公路先通大卡车（高容量路径），小路后来才承担剩余流量。
+我们维护一个阈值 $\Delta$，只在残量容量 $\ge\Delta$ 的边上增广；当找不到这样的路时，把 $\Delta$ 减半，继续。
+
+\begin{lstlisting}
+CAPACITY-SCALING(G):
+  f = 0
+  Delta = 2^floor(log2(C))   // 不超过最大容量 C 的最大 2 的幂
+  while Delta >= 1:
+      // 只在残量容量 >= Delta 的边上寻找增广路
+      while exists s-t path P in Gf(Delta):
+          f = AUGMENT(f, P)
+      Delta = Delta / 2
+  return f
+\end{lstlisting}
+
+\begin{theorem}
+容量缩放算法的时间复杂度为 $O(|E|^2\log C)$。
+\end{theorem}
+\proofidea{
+共有 $1+\lfloor\log_2 C\rfloor$ 个阶段。
+关键引理：在 $\Delta$-阶段结束时，最大流的剩余可增广量不超过 $|E|\cdot\Delta$（因为此时残量图 $G_f(\Delta)$ 中已无 $s$-$t$ 路径，取对应割，每条割边残量 $<\Delta$，至多 $|E|$ 条边）。
+故每阶段增广次数 $\le 2|E|$（每次至少增加 $\Delta$，且初始剩余量 $\le|E|\cdot 2\Delta$）。
+每次增广 $O(|E|)$，总时间 $O(|E|^2\log C)$。
+}
+
+% -----------------------------------------------------------
+\section{Edmonds--Karp 算法}
+
+\noindent\textbf{直觉。}总是走\emph{最短增广路}（边数最少）。
+关键性质是：随着增广进行，最短增广路的长度\emph{单调不减}。
+直观上，增广只会饱和当前最短路上的边，而那些短路被封死后，只能走更长的路。
+
+\begin{lstlisting}
+EDMONDS-KARP(G):
+  f = 0
+  while exists s-t path in Gf:
+      P = BFS(Gf, s, t)   // 找边数最少的路
+      f = AUGMENT(f, P)
+  return f
+\end{lstlisting}
+
+\begin{theorem}
+Edmonds--Karp 的增广次数为 $O(|V||E|)$，总时间为 $O(|V||E|^2)$。
+\end{theorem}
+\proofidea{
+引理1：最短增广路长度 $d_f(s,t)$ 单调不减——因为增广只添加反向边，而反向边只能使距离增大。
+引理2：每条边成为瓶颈后，若再次成为瓶颈，其"尾点"到 $s$ 的距离至少增加 $2$（中间必须经历一次"进出"的往返）。
+由于距离最大为 $|V|-1$，每条边最多成为瓶颈 $O(|V|)$ 次，共 $O(|V||E|)$ 次增广。
+}
+
+% -----------------------------------------------------------
+\section{Dinic 算法}
+
+\noindent\textbf{直觉。}Edmonds--Karp 每次只走一条最短路。Dinic 更激进：一次性把\emph{所有}当前长度的最短增广路都处理掉，这叫做求\emph{阻塞流}。
+
+\begin{definition}[层次图]
+对残量网络 $G_f$ 做 BFS，令 $\ell(v)$ 为 $s$ 到 $v$ 的最短路边数。
+\emph{层次图} $L_G$ 只保留满足 $\ell(w)=\ell(v)+1$ 的边 $(v,w)$。
+\end{definition}
+
+\begin{definition}[阻塞流]
+层次图 $L_G$ 上的阻塞流是一个流，使得 $L_G$ 中每条从 $s$ 到 $t$ 的路径至少有一条边被饱和。
+\end{definition}
+
+\noindent Dinic 算法每一\emph{阶段}：(1);用 BFS 建层次图；(2);在层次图上求阻塞流（DFS 前进/回退）；(3);更新残量图。
+
+\noindent\textbf{完整运行示例。}考虑如下网络：
+\[
+  s\xrightarrow{10}a,\quad s\xrightarrow{8}b,\quad
+  a\xrightarrow{4}b,\quad a\xrightarrow{8}c,\quad
+  b\xrightarrow{10}d,\quad c\xrightarrow{8}t,\quad d\xrightarrow{10}t.
+\]
+
+\noindent 初始流为 $0$。对残量网络做 BFS，得到第一阶段的层次：
+\[
+  \ell(s)=0,\qquad \ell(a)=\ell(b)=1,\qquad
+  \ell(c)=\ell(d)=2,\qquad \ell(t)=3.
+\]
+因此层次图只保留从第 $i$ 层指向第 $i+1$ 层的边：
+\[
+  s\to a,\ s\to b,\ a\to c,\ b\to d,\ c\to t,\ d\to t.
+\]
+注意原图中的边 $a\to b$ 不在层次图中，因为 $a,b$ 同层。
+
+\medskip
+\noindent\textbf{第一阶段：求阻塞流。}
+\begin{enumerate}
+  \item 走路径 $s\to a\to c\to t$，瓶颈为 $\min(10,8,8)=8$，送 $8$ 单位流。
+  \item 走路径 $s\to b\to d\to t$，瓶颈为 $\min(8,10,10)=8$，送 $8$ 单位流。
+\end{enumerate}
+此时层次图中所有 $s$-$t$ 路径都被阻塞：$a\to c$ 已饱和，$s\to b$ 已饱和。第一阶段结束，当前流值
+\[
+  |f|=8+8=16.
+\]
+
+\medskip
+\noindent\textbf{第二阶段：重新 BFS。}
+残量网络中仍有从 $s$ 到 $t$ 的路，但最短路变长了：
+\[
+  s\to a\to b\to d\to t.
+\]
+对应层次为
+\[
+  \ell(s)=0,\quad \ell(a)=1,\quad \ell(b)=2,\quad \ell(d)=3,\quad \ell(t)=4.
+\]
+这条路的残量容量分别是
+\[
+  c_f(s,a)=2,\quad c_f(a,b)=4,\quad c_f(b,d)=2,\quad c_f(d,t)=2,
+\]
+瓶颈为 $2$。增广 $2$ 单位后，当前流值变为
+\[
+  |f|=18.
+\]
+
+\medskip
+\noindent\textbf{终止与最优性验证。}
+再次检查残量网络：$s\to a$ 和 $s\to b$ 都已无剩余容量，所以从 $s$ 不能再到达其他点，残量网络中不存在增广路。取割
+\[
+  S=\{s\},\qquad T=\{a,b,c,d,t\},
+\]
+其容量为
+\[
+  c(S,T)=c(s,a)+c(s,b)=10+8=18=|f|.
+\]
+所以最终流是最大流。这个例子展示了 Dinic 的两个关键点：每个阶段处理完整个当前最短层次图；阶段结束后，最短增广路长度严格变长。
+
+\begin{theorem}[Dinic 1970]
+Dinic 算法的时间复杂度为 $O(|V|^2|E|)$。
+\end{theorem}
+\proofidea{
+每个阶段 $O(|V||E|)$：建层次图 $O(|E|)$；每次增广删一条饱和边共 $O(|E|)$；每次回退删一个死节点共 $O(|V|)$；前进步骤总计 $O(|E||V|)$。
+阶段数 $O(|V|)$：每阶段后 $d_f(s,t)$ 严格增大（层次图上所有最短路均被阻塞）。
+}
+
+\begin{remark}
+在单位容量网络（如二分匹配）上，Dinic 算法时间降至 $O(|E||V|^{1/2})$，见第 10 章。
+\end{remark}
+
+\noindent\textbf{三种改进对比：}
+
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+算法 & 核心思想 & 时间复杂度 \\
+\midrule
+容量缩放 & 先大后小，控制增广瓶颈 & $O(|E|^2\log C)$ \\
+Edmonds--Karp & 每次最短路（BFS）& $O(|V||E|^2)$ \\
+Dinic & 层次图 + 阻塞流 & $O(|V|^2|E|)$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\keypoint{三种改进都在控制"选哪条增广路"：容量缩放控制瓶颈大小，Edmonds--Karp 控制路径长度，Dinic 一次处理整层最短增广路，是工程中常用的实用算法。}
+
+% ============================================================
+
+\lecture{10.pdf}{单位容量网络与匹配}{二分匹配、Hall 定理、不相交路径、Menger 定理}
+
+\noindent
+\textbf{为什么学这一章？}
+招聘：$n$ 个岗位，$m$ 个候选人，每人有意向岗位列表，问最多能完成几个配对？
+这是\emph{二分匹配}问题。本章展示如何用最大流统一解决配对问题，并揭示其背后的组合结构——Hall 定理与 Menger 定理。
+
+% -----------------------------------------------------------
+\section{二分匹配的流建模}
+
+\begin{definition}[二分匹配]
+给定二分图 $G=(L\cup R,E)$，匹配 $M\subseteq E$ 是一组边，使每个节点最多出现在一条边中。
+\emph{最大匹配}是最大势的匹配。
+\end{definition}
+
+\noindent\textbf{如何转化为最大流？}
+
+\noindent 构造新网络 $G'=(L\cup R\cup\{s,t\},E')$：
+\begin{enumerate}
+  \item 对每个 $u\in L$，加边 $s\to u$，容量 $1$（每个左节点最多匹配一次）。
+  \item 对每条 $(u,v)\in E$，加边 $u\to v$，容量 $1$。
+  \item 对每个 $v\in R$，加边 $v\to t$，容量 $1$（每个右节点最多匹配一次）。
+\end{enumerate}
+
+\noindent\textbf{完整示例（$3+3$ 二分图）。}设 $L=\{A,B,C\}$，$R=\{X,Y,Z\}$，边集 $E=\{(A,X),(A,Y),(B,Y),(B,Z),(C,Z)\}$。
+
+\medskip
+\noindent 构造后的流网络（所有容量为 $1$）：
+\[
+  s\to A,\; s\to B,\; s\to C,\quad A\to X,\; A\to Y,\; B\to Y,\; B\to Z,\; C\to Z,\quad X\to t,\; Y\to t,\; Z\to t.
+\]
+
+\noindent 运行最大流（Ford--Fulkerson）：
+\begin{enumerate}
+  \item 增广路 $s\to A\to X\to t$，流值 $+1$。
+  \item 增广路 $s\to B\to Y\to t$，流值 $+1$。
+  \item 增广路 $s\to C\to Z\to t$，流值 $+1$。
+  \item 无更多增广路，终止，$|f|=3$。
+\end{enumerate}
+
+\noindent 流量为 $1$ 的 $L$-$R$ 边：$\{(A,X),(B,Y),(C,Z)\}$——这就是大小为 $3$ 的完美匹配！
+
+\begin{theorem}
+大小为 $k$ 的匹配与 $G'$ 中值为 $k$ 的整数流之间存在一一对应。
+\end{theorem}
+\proofidea{容量约束保证每个左/右节点最多匹配一次；整数容量网络的 Ford--Fulkerson 产生整数流，因此 $f(u,v)=1$ 的中间边恰好构成匹配。反向构造显然。}
+
+\complexity{用 Dinic 算法（单位容量网络的 $O(|E||V|^{1/2})$ 界），二分匹配可在 $O(|E||V|^{1/2})$ 时间内求解。}
+
+% -----------------------------------------------------------
+\section{Hall 婚配定理}
+
+\noindent\textbf{直觉。}什么时候二分图有"覆盖左侧所有节点"的完美匹配？
+答案非常直观：对左侧任意一组节点 $S$，它们的"认识"的右侧节点必须足够多（至少 $|S|$ 个），否则 $S$ 中的某些节点一定没有对象。
+
+\begin{theorem}[Hall 婚配定理，Frobenius 1917, Hall 1935]
+二分图 $G=(L\cup R,E)$（$|L|=|R|$）存在完美匹配，当且仅当对任意 $S\subseteq L$，有
+\[
+  |N(S)|\ge|S|,
+\]
+其中 $N(S)$ 是 $S$ 的所有邻居节点构成的集合。
+\end{theorem}
+\proofidea{
+必要性（$\Rightarrow$）：$S$ 中每个节点必须匹配到不同的 $N(S)$ 中的节点，故 $|N(S)|\ge|S|$。
+充分性（$\Leftarrow$）：反设最大流 $|f^*|<|L|$，由最大流最小割定理存在容量 $<|L|$ 的割。
+设割 $(A,B)$，令 $L_A=L\cap A$，$L_B=L\cap B$，$R_A=R\cap A$。
+割容量 $=|L_B|+|R_A|<|L|=|L_A|+|L_B|$，故 $|R_A|<|L_A|$。
+又由于割不能切 $\infty$ 容量边，$N(L_A)\subseteq R_A$，故 $|N(L_A)|\le|R_A|<|L_A|$，违反 Hall 条件，矛盾。
+}
+
+% -----------------------------------------------------------
+\section{单位容量网络}
+
+\begin{definition}[简单单位容量网络]
+流网络中每条边容量为 $1$，且除 $s,t$ 外每个节点要么只有一条入边，要么只有一条出边（或两者都满足）。
+\end{definition}
+
+\begin{theorem}[Even--Tarjan 1975]
+在简单单位容量网络上，Dinic 算法的时间复杂度为 $O(|E||V|^{1/2})$。
+\end{theorem}
+\proofidea{
+经过 $|V|^{1/2}$ 个阶段后，最短增广路长度 $>|V|^{1/2}$，层次图至少有 $|V|^{1/2}$ 层，
+由鸽巢原理存在某层节点数 $\le|V|^{1/2}$，以该层为割，剩余可增广量 $\le|V|^{1/2}$。
+每次增广 $+1$，再增广 $|V|^{1/2}$ 次即可达到最优。
+总计：前 $|V|^{1/2}$ 阶段每阶段 $O(|E|)$，后 $|V|^{1/2}$ 次增广每次 $O(|E|)$，共 $O(|E||V|^{1/2})$。
+}
+
+% -----------------------------------------------------------
+\section{边不相交路径与 Menger 定理}
+
+\noindent\textbf{直觉。}网络中最多能同时走几条互不共享边的 $s$-$t$ 路径？
+（如：$k$ 条独立的通信链路）
+直觉上，这个数字等于"最少需要删除多少条边才能彻底切断 $s$ 到 $t$ 的联系"。
+
+\begin{definition}[边不相交路径]
+若两条路径没有公共边，则它们\emph{边不相交}。
+\end{definition}
+
+\noindent\textbf{流建模}：将所有边容量设为 $1$，最大流值即为最大边不相交路径数。
+
+\begin{theorem}[Menger 定理，边版，1927]
+从 $s$ 到 $t$ 的最大边不相交路径数，等于使 $s,t$ 断联所需删除的最少边数。
+\end{theorem}
+\proofidea{这正是单位容量流网络上的最大流最小割定理。最大流 $=$ 最大不相交路径数；最小割 $=$ 最少删除边数。}
+
+\begin{remark}
+Menger 定理还有点版（将每个节点拆成入节点和出节点，容量为 $1$），描述顶点不相交路径与最少删点数的等价关系。
+\end{remark}
+
+\keypoint{最大流是求解二分匹配、不相交路径、网络连通性等组合问题的统一工具。"单位容量"使问题具有更多结构，使 Dinic 算法的复杂度大幅改善。}
+
+% ============================================================
+
+\lecture{11.pdf}{线性规划导论}{LP 建模、几何直觉、对偶、互补松弛}
+
+\noindent
+\textbf{为什么学线性规划？}
+工厂生产两种产品，每种产品消耗不同原料，利润也不同，原料总量有限——如何分配生产量使利润最大？
+这类"在线性约束下优化线性目标"的问题无处不在，统称\emph{线性规划（LP）}。
+更重要的是，LP 是后续近似算法、对偶分析、最大流证明的通用语言。
+
+% -----------------------------------------------------------
+\section{线性规划模型}
+
+\begin{definition}[线性规划]
+线性规划是在一组线性约束下优化线性目标函数的问题。标准最大化形式：
+\[
+  \max\; c^Tx,\quad \text{s.t.}\quad Ax\le b,\; x\ge 0.
+\]
+其中 $x\in\mathbb{R}^n$ 是决策变量，$c\in\mathbb{R}^n$ 是目标系数，$A\in\mathbb{R}^{m\times n}$，$b\in\mathbb{R}^m$。
+\end{definition}
+
+\noindent\textbf{直觉（2 变量例子）。}以具体工厂问题说明：
+\begin{itemize}
+  \item 工厂生产两种产品 $x_1$（普通型）和 $x_2$（豪华型）。
+  \item 每箱 $x_1$ 利润 \$3，每箱 $x_2$ 利润 \$5。
+  \item 约束：$x_1\le 4$（$x_1$ 需求上限），$2x_2\le 12$（$x_2$ 产能上限），$3x_1+5x_2\le 15$（原料总量），$x_1,x_2\ge 0$。
+\end{itemize}
+
+\noindent LP 写出：
+\[
+  \max\;3x_1+5x_2,\quad x_1\le 4,\quad 2x_2\le 12,\quad 3x_1+5x_2\le 15,\quad x_1,x_2\ge 0.
+\]
+
+% -----------------------------------------------------------
+\section{几何直觉：可行域与最优顶点}
+
+\noindent\textbf{可行域是凸多面体。}2 变量 LP 中，每条线性不等式在平面上定义一个半平面，可行域是所有半平面的交——一个凸多边形。
+
+\noindent\textbf{目标函数等高线。}目标 $3x_1+5x_2=c$ 是一条斜率为 $-3/5$ 的直线。当 $c$ 增大时，这条线向右上平移。我们要找 $c$ 最大、且直线仍与可行域有交点时的情况。
+
+\noindent\textbf{最优解在顶点。}等高线最后接触可行域的点必然是可行域的\emph{顶点}（多边形的角）。这是凸集的关键性质——目标函数在凸集上的最优值必在极点处取到。
+
+\noindent\textbf{枚举顶点（完整例子）。}
+可行域由 5 个约束围成，顶点是约束边界的交点：
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+顶点 & $x_1$ & $x_2$ & 目标值 $3x_1+5x_2$ \\
+\midrule
+$O$  & 0 & 0 & 0 \\
+$A$  & 4 & 0 & 12 \\
+$B$  & 4 & 0.6 & 15（注：$3\times4+5\times0.6=14.7$，取 $3x_1+5x_2=15,x_1=4$）\\
+$C$  & 5/3 & 6 & $5+30=35$（注：$2x_2=12\Rightarrow x_2=6$，$3x_1+30=15\Rightarrow x_1=-5$不可行）\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent 更仔细地枚举：约束 $2x_2\le12$ 给出 $x_2\le6$，约束 $3x_1+5x_2\le15$ 与 $x_2=6$ 的交：$3x_1\le15-30=-15$，不可行。
+实际顶点需联立各对约束求解：
+
+\begin{center}
+\begin{tabular}{llll}
+\toprule
+顶点（约束交点）& $x_1$ & $x_2$ & 目标 $3x_1+5x_2$ \\
+\midrule
+$x_1=0,\,x_2=0$ & 0 & 0 & 0 \\
+$x_1=4,\,x_2=0$ & 4 & 0 & 12 \\
+$x_1=4$，$3x_1+5x_2=15$ & 4 & $3/5$ & $12+3=15$ \\
+$3x_1+5x_2=15$，$2x_2=12$ & $(15-30)/3<0$ & 6 & 不可行 \\
+$x_1=0$，$3x_1+5x_2=15$ & 0 & 3 & 15 \\
+$x_1=0$，$2x_2=12$ & 0 & 6 & 30（但需验证 $3\times0+5\times6=30>15$，不可行）\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent 可行顶点为 $(0,0)$、$(4,0)$、$(4,3/5)$、$(0,3)$。
+最大目标值在 $(0,3)$ 处取到：$3\times0+5\times3=\mathbf{15}$。
+（注：$(4,3/5)$：$3\times4+5\times0.6=12+3=15$，同样是最优！说明最优解可以不唯一。）
+
+\begin{remark}
+LP 最优解若存在，必在某个顶点（极点）处取到。例外情况：问题不可行（约束矛盾），或无界（约束太松，目标可任意大）。
+\end{remark}
+
+% -----------------------------------------------------------
+\section{建模方法论}
+
+建 LP 模型时依次考虑四个问题：
+\begin{enumerate}
+  \item \textbf{决策变量}：想要优化的量是什么？（生产量、流量、价格……）
+  \item \textbf{目标函数}：最大化利润、最小化成本？写成决策变量的线性组合。
+  \item \textbf{约束}：每个资源限制、需求限制、逻辑限制如何写成线性不等式？
+  \item \textbf{整数性}：变量是否必须为整数？若是，则为整数规划（NP 难，通常难得多）。
+\end{enumerate}
+
+% -----------------------------------------------------------
+\section{对偶}
+
+\noindent\textbf{直觉。}原 LP 是工厂老板视角：如何分配产量使利润最大？
+对偶 LP 是资源购买商视角：如何给工厂的每种原料定价，使得"按这个价格买资源"足以覆盖每种产品的利润，同时总购买成本最小？
+
+\noindent 对原 LP：$\max c^Tx,\;Ax\le b,\;x\ge0$，构造\emph{对偶 LP}：
+\[
+  \min\; b^Ty,\quad A^Ty\ge c,\quad y\ge 0.
+\]
+其中对偶变量 $y_i$ 可理解为第 $i$ 个约束对应资源的"影子价格"。
+
+\noindent\textbf{对偶构造过程（以本章例子说明）。}
+原问题：$\max 3x_1+5x_2$，约束 $x_1\le4$（对应 $y_1$），$2x_2\le12$（对应 $y_2$），$3x_1+5x_2\le15$（对应 $y_3$）。
+
+用 $y_1,y_2,y_3\ge0$ 乘各约束相加：
+$(y_1+3y_3)x_1+(2y_2+5y_3)x_2\le 4y_1+12y_2+15y_3$。
+
+要使左侧系数不小于目标系数：$y_1+3y_3\ge3,\;2y_2+5y_3\ge5$（原来右边是 $x_1,x_2$ 的目标系数）。
+
+等等，标准推导：令乘子 $y_1,y_2,y_3\ge0$，加权求和：
+$(y_1+3y_3)x_1+(2y_2+5y_3)x_2\le 4y_1+12y_2+15y_3$。
+要让左侧界住目标，令 $y_1+3y_3\ge3,\;2y_2+5y_3\ge5$。
+对偶问题：$\min 4y_1+12y_2+15y_3,\;\text{s.t.}\; y_1+3y_3\ge3,\; 2y_2+5y_3\ge5,\; y_1,y_2,y_3\ge0$。
+
+\begin{theorem}[弱对偶]
+对任意原可行 $x$ 和对偶可行 $y$，有 $c^Tx\le b^Ty$。
+\end{theorem}
+
+\begin{theorem}[强对偶]
+若原问题有有界最优解，则对偶也有最优解，且 $\max c^Tx=\min b^Ty$。
+\end{theorem}
+
+\noindent\textbf{用本章例子验证强对偶。}
+原问题最优：$(x_1^*,x_2^*)=(0,3)$，目标值 $15$。
+对偶问题：$\min 4y_1+12y_2+15y_3$，约束 $y_1+3y_3\ge3,\;2y_2+5y_3\ge5$。
+取 $y_1^*=0,\;y_2^*=0,\;y_3^*=1$：验证 $0+3=3\ge3\checkmark$，$0+5=5\ge5\checkmark$，目标值 $0+0+15=15$。
+原问题目标值 $=$ 对偶目标值 $=15$，强对偶定理验证。
+
+% -----------------------------------------------------------
+\section{互补松弛}
+
+\noindent\textbf{直觉。}互补松弛是最优性的充要条件：
+\begin{itemize}
+  \item "没有用完的资源不值钱"：若某约束还有剩余（不紧），则对应的对偶变量（影子价格）为 $0$。
+  \item "没有生产的产品不带来边际收益"：若某决策变量为 $0$，则对应的对偶约束可以有松弛（即影子定价超过实际盈利也没关系）。
+\end{itemize}
+
+\begin{theorem}[互补松弛条件]
+$x^*,y^*$ 分别是原/对偶可行解，它们同时最优当且仅当：
+\[
+  y_i^*(b_i-(Ax^*)_i)=0\quad\forall i,\qquad x_j^*((A^Ty^*)_j-c_j)=0\quad\forall j.
+\]
+\end{theorem}
+
+\noindent\textbf{用本章例子验证互补松弛。}
+$(x_1^*,x_2^*)=(0,3)$，$(y_1^*,y_2^*,y_3^*)=(0,0,1)$：
+\begin{itemize}
+  \item 约束1（$x_1\le4$）：$y_1^*=0$，$b_1-(Ax^*)_1=4-0=4\ne0$，但 $y_1^*\cdot4=0$，满足。
+  \item 约束2（$2x_2\le12$）：$y_2^*=0$，$b_2-(Ax^*)_2=12-6=6\ne0$，但 $y_2^*\cdot6=0$，满足。
+  \item 约束3（$3x_1+5x_2\le15$）：$y_3^*=1\ne0$，故需 $b_3-(Ax^*)_3=15-15=0$，满足。
+  \item 变量 $x_1^*=0$：对偶约束1为 $y_1^*+3y_3^*=0+3=3\ge3$，可以有松弛，满足。
+  \item 变量 $x_2^*=3>0$：对偶约束2需为紧，$2y_2^*+5y_3^*=0+5=5=5$，满足。
+\end{itemize}
+
+\keypoint{LP 对偶是理解最大流最小割、集合覆盖松弛、原始--对偶近似算法的通用框架。互补松弛给出了一种验证解是否最优的"证书"。}
+
+% ============================================================
+
+\lecture{12.pdf}{单纯形算法}{标准型、字典、pivot、退化与复杂度}
+
+\noindent
+\textbf{为什么学单纯形？}
+LP 几何上是在凸多面体中找最优点。单纯形算法的思想是：从一个顶点出发，沿着多面体的"边"走到相邻更好的顶点，直到没有更好的邻居——局部最优即全局最优（因为可行域是凸的）。
+这就是为什么"沿着多边形的边爬坡"能找到全局最优。
+
+% -----------------------------------------------------------
+\section{标准型与松弛变量}
+
+\noindent\textbf{把不等式变等式。}引入\emph{松弛变量}，类似于最大流中的"剩余容量"：
+约束 $a_1x_1+a_2x_2\le b$ 变为 $a_1x_1+a_2x_2+s=b,\;s\ge0$（$s$ 是"剩余量"）。
+
+\noindent 以第 11 章的工厂 LP 为例：
+\[
+  \max\;3x_1+5x_2,\; x_1\le4,\; 2x_2\le12,\; 3x_1+5x_2\le15,\; x_1,x_2\ge0.
+\]
+引入松弛变量 $s_1,s_2,s_3$，标准型为：
+\[
+  \max\;3x_1+5x_2,\quad x_1+s_1=4,\quad 2x_2+s_2=12,\quad 3x_1+5x_2+s_3=15,\quad x_1,x_2,s_1,s_2,s_3\ge0.
+\]
+
+\begin{definition}[基可行解]
+给定标准型 LP，\emph{基}是一组 $m$ 个变量（$m$ 为等式约束数），使得对应的系数矩阵可逆。
+将非基变量设为 $0$，解出基变量，得到\emph{基可行解}。几何上对应多面体的一个顶点。
+\end{definition}
+
+\noindent\textbf{初始顶点}：令 $x_1=x_2=0$，则 $s_1=4,\;s_2=12,\;s_3=15$（均非负，可行）。
+初始基 $=\{s_1,s_2,s_3\}$，非基 $=\{x_1,x_2\}$，目标值 $=0$。
+
+% -----------------------------------------------------------
+\section{字典表示与单纯形 Pivot}
+
+\noindent\textbf{字典（Dictionary）}是单纯形算法的核心数据结构，将基变量表示为非基变量的线性函数：
+\[
+  \text{目标} = [\text{当前值}] + [\text{非基变量的系数}]
+\]
+
+\noindent\textbf{初始字典}（基 $=\{s_1,s_2,s_3\}$，非基 $=\{x_1,x_2\}$）：
+\begin{align*}
+  s_1 &= 4 - x_1 \\
+  s_2 &= 12 - 2x_2 \\
+  s_3 &= 15 - 3x_1 - 5x_2 \\
+  z   &= 0 + 3x_1 + 5x_2
+\end{align*}
+
+\noindent\textbf{Pivot 步骤（迭代 1）：}
+\begin{enumerate}
+  \item \textbf{选进基变量}：$x_2$ 的系数为 $+5$（最大正系数），选 $x_2$ 进基。
+  \item \textbf{比值测试（选离基变量）}：
+        \begin{itemize}
+          \item $s_1$：$x_2$ 系数为 $0$，无约束（不限制 $x_2$ 增大）。
+          \item $s_2=12-2x_2\ge0$：$x_2\le12/2=6$。
+          \item $s_3=15-5x_2\ge0$：$x_2\le15/5=3$。
+        \end{itemize}
+        最小比值：$\min(6,3)=3$，对应 $s_3$ 离基，$x_2=3$。
+  \item \textbf{Pivot}：从 $s_3=15-3x_1-5x_2$ 解出 $x_2$：$x_2=3-\frac{3}{5}x_1-\frac{1}{5}s_3$。
+        代入其他式：
+        \begin{align*}
+          s_1 &= 4-x_1 \\
+          s_2 &= 12-2\left(3-\tfrac{3}{5}x_1-\tfrac{1}{5}s_3\right) = 6+\tfrac{6}{5}x_1+\tfrac{2}{5}s_3\\
+          x_2 &= 3-\tfrac{3}{5}x_1-\tfrac{1}{5}s_3 \\
+          z   &= 0+3x_1+5\left(3-\tfrac{3}{5}x_1-\tfrac{1}{5}s_3\right)=15+0\cdot x_1-s_3
+        \end{align*}
+\end{enumerate}
+
+\noindent\textbf{迭代 1 后的字典}（基 $=\{s_1,s_2,x_2\}$，非基 $=\{x_1,s_3\}$）：
+\begin{align*}
+  s_1 &= 4 - x_1 \\
+  s_2 &= 6 + \tfrac{6}{5}x_1 + \tfrac{2}{5}s_3 \\
+  x_2 &= 3 - \tfrac{3}{5}x_1 - \tfrac{1}{5}s_3 \\
+  z   &= 15 + 0\cdot x_1 - s_3
+\end{align*}
+
+\noindent\textbf{终止检查}：目标函数中 $x_1$ 系数为 $0$，$s_3$ 系数为 $-1<0$。
+所有非基变量系数 $\le0$，无改善方向，\textbf{当前顶点最优}。
+最优解：令非基变量 $x_1=0,\;s_3=0$，代入得 $x_2=3,\;s_1=4,\;s_2=6$，目标值 $z=15$。
+
+\noindent\textbf{对应几何}：只经过 1 次 pivot，从顶点 $(0,0)$（$z=0$）直接跳到顶点 $(0,3)$（$z=15$）！
+
+% -----------------------------------------------------------
+\section{单纯形算法完整描述}
+
+\begin{lstlisting}
+SIMPLEX(A, b, c):
+  // 初始化字典（假设原点可行）
+  初始化基变量 = 松弛变量，非基变量 = 原始变量
+  loop:
+      if 目标行中无正系数:
+          return 当前基可行解（最优）
+      选择目标行中系数最大的非基变量 e 进基
+      对每个基变量做比值测试（系数>0 时的比值）
+      if 无限小比值:
+          return 无界（unbounded）
+      选最小比值对应基变量 l 离基
+      pivot: 消元更新字典
+\end{lstlisting}
+
+% -----------------------------------------------------------
+\section{初始顶点：Phase I}
+
+若原点（$x=0$）不可行（即 $b$ 中有负分量），需先求一个可行初始顶点。
+方法：构造辅助 LP，引入人工变量 $z_i\ge0$，最小化 $\sum z_i$：
+\begin{itemize}
+  \item 若最优值为 $0$（所有 $z_i=0$），得到原问题的可行初始基。
+  \item 若最优值 $>0$，原问题不可行。
+\end{itemize}
+
+% -----------------------------------------------------------
+\section{退化与 Bland 规则}
+
+\begin{definition}[退化]
+若基可行解中某基变量值为 $0$，则称顶点\emph{退化}。Pivot 后目标值可能不增，极端情况下可能循环。
+\end{definition}
+
+\noindent\textbf{Bland 规则}（防循环）：总选下标最小的改善方向进基；当有多个变量可离基时，选下标最小的。可证明在 Bland 规则下单纯形不会循环。
+
+% -----------------------------------------------------------
+\section{复杂度}
+
+\begin{theorem}
+单纯形算法在最坏情况下可能需要指数步（Klee--Minty 立方体是经典反例）。
+\end{theorem}
+
+\noindent\textbf{Klee--Minty 直觉}：构造一个"变形超立方体"，使单纯形沿某种 pivot 规则需要遍历所有 $2^n$ 个顶点。
+这说明单纯形对特定 pivot 规则不是多项式算法。
+
+\pitfall{"LP 可多项式求解"（椭球法 1979，内点法 1984）与"单纯形最坏多项式"是不同的命题。前者为真，后者对经典 pivot 规则一般不成立。但实践中单纯形极快，平滑分析（Spielman--Teng 2004）解释了这一现象。}
+
+\keypoint{单纯形是"沿多面体的棱爬坡"的直观算法；字典（Dictionary）表示使每次 pivot 的代价为 $O((m+n)n)$；实践中单纯形远比理论最坏界快。}
+
+% ============================================================
+
+\lecture{13.pdf}{线性规划的应用}{最短路、最大流、整数规划、集合覆盖}
+
+\noindent
+\textbf{为什么学 LP 应用？}
+LP 是组合优化问题的"万能建模语言"：最短路、最大流、匹配……都可以写成 LP，从而统一地研究它们的结构和近似算法。
+LP 松弛（relaxation）则是设计近似算法的标准手法：先解更容易的 LP，再通过舍入得到整数解。
+
+% -----------------------------------------------------------
+\section{最短路的 LP 建模}
+
+\noindent\textbf{直觉。}把最短路问题想象成"从 $s$ 发出 $1$ 单位水，水流沿边传播，希望最终到达 $t$ 的费用最小"。
+每条边 $e$ 的"开阀量"$x_e\ge0$ 表示流经该边的"水量"，流守恒约束保证水不消失，费用为 $\sum c_e x_e$。
+
+\noindent\textbf{流式 LP 写法}：
+\[
+  \min\;\sum_{e\in E}c_e x_e
+\]
+满足流守恒：$s$ 净流出 $1$，$t$ 净流入 $1$，其他节点 $v$ 净流量为 $0$，$x_e\ge0$。
+即：
+\begin{align*}
+  \sum_{e\text{ 出 }s}x_e - \sum_{e\text{ 入 }s}x_e &= 1, \\
+  \sum_{e\text{ 入 }v}x_e - \sum_{e\text{ 出 }v}x_e &= 0,\quad v\ne s,t, \\
+  \sum_{e\text{ 入 }t}x_e - \sum_{e\text{ 出 }t}x_e &= -1.
+\end{align*}
+
+由于网络矩阵\emph{全幺模（totally unimodular）}，最优基本解自动为整数，对应一条 $s$-$t$ 路径（或若干路径的极点组合）。
+
+\noindent\textbf{对偶写法（势函数视角）}：
+\[
+  \max\;d_t - d_s,\quad d_v - d_u\le c_{uv}\;(\forall (u,v)\in E),\quad d_s=0.
+\]
+其中 $d_v$ 是节点 $v$ 的"势"（距离标签），这与 Dijkstra/Bellman--Ford 中的距离标签完全一致！
+强对偶定理告诉我们：最短路长度 $=$ 最大势差，这与 Dijkstra 的正确性证明是同一件事。
+
+% -----------------------------------------------------------
+\section{最大流的 LP 与对偶}
+
+\noindent\textbf{最大流 LP 形式化。}引入从 $t$ 到 $s$ 的虚拟边，将最大流转为循环：
+
+\[
+  \max\; f_{ts}
+\]
+\begin{align*}
+  f_{ij} &\le c_{ij},\quad (i,j)\in E, \\
+  \sum_{(w,i)\in E}f_{wi} - \sum_{(i,z)\in E}f_{iz} &= 0,\quad i\in V, \\
+  f_{ij} &\ge 0.
+\end{align*}
+
+\noindent\textbf{对偶的含义——最小割。}引入对偶变量：$d_{ij}\ge0$（对应容量约束），$p_i$（对应流守恒约束）。对偶 LP 为：
+\[
+  \min\;\sum_{(i,j)\in E}c_{ij}d_{ij},\quad d_{ij}-p_i+p_j\ge0\;((i,j)\in E),\quad p_s-p_t\ge1,\quad d_{ij},p_i\ge0.
+\]
+整数化（$d_{ij},p_i\in\{0,1\}$）：$p_s=1,\;p_t=0$，$d_{ij}=1$ 当且仅当 $(i,j)$ 跨越割 $(\{p=1\},\{p=0\})$。
+这正是最小 $s$-$t$ 割问题！因此：
+\[
+  \text{LP 强对偶}\;\Rightarrow\;\text{最大流最小割定理}
+\]
+
+这给出了最大流最小割定理的另一种证明：通过 LP 对偶，而非增广路论证。
+
+% -----------------------------------------------------------
+\section{整数规划与 LP 松弛}
+
+\noindent\textbf{直觉。}许多组合优化问题自然写成 $0$-$1$ 整数规划（ILP），但整数规划通常是 NP 难的。
+\emph{LP 松弛}的思路：把 $x_i\in\{0,1\}$ 放宽为 $0\le x_i\le 1$，得到更容易求解的 LP。
+
+\begin{itemize}
+  \item 松弛最优值对\textbf{最小化}问题是\textbf{下界}（放宽约束，只会让最优值更小或不变）。
+  \item 松弛最优值对\textbf{最大化}问题是\textbf{上界}。
+  \item 若松弛解天然整数（如全幺模矩阵），则得到精确算法（最短路、最大流、最大匹配均如此）。
+  \item 若松弛解分数，可通过舍入、随机化或原始--对偶方法得到近似算法，并用松弛值来分析近似比。
+\end{itemize}
+
+% -----------------------------------------------------------
+\section{集合覆盖的 ILP、LP 松弛与对偶}
+
+\begin{definition}[集合覆盖]
+给定全集 $U$（$|U|=n$）和子集族 $\mathcal{S}=\{S_1,\ldots,S_m\}$（每个 $S_i\subseteq U$），
+选择最少数量的子集使其并集包含 $U$ 的所有元素。
+\end{definition}
+
+\noindent\textbf{整数规划（ILP）写法}：决策变量 $x_S\in\{0,1\}$（$1$ 表示选集合 $S$）：
+\[
+  \min\;\sum_{S\in\mathcal{S}} x_S,\quad \sum_{S:\,e\in S}x_S\ge 1\;(\forall e\in U),\quad x_S\in\{0,1\}.
+\]
+
+\noindent\textbf{LP 松弛}：将整数约束放宽为 $x_S\ge0$（上界 $x_S\le1$ 在最小化中自动满足）：
+\[
+  \min\;\sum_{S\in\mathcal{S}} x_S,\quad \sum_{S:\,e\in S}x_S\ge 1\;(\forall e\in U),\quad x_S\ge 0.
+\]
+
+\noindent\textbf{对偶 LP}：对偶变量 $y_e\ge0$（对应元素 $e$ 的覆盖约束）：
+\[
+  \max\;\sum_{e\in U}y_e,\quad \sum_{e\in S}y_e\le 1\;(\forall S\in\mathcal{S}),\quad y_e\ge 0.
+\]
+直觉：$y_e$ 是元素 $e$ 的"价值"，每个集合的总价值不超过 $1$（选它的代价），最大化所有元素的总价值——这是集合覆盖的分数打包问题（set packing 的松弛）。
+
+\noindent\textbf{对偶的应用}：
+\begin{itemize}
+  \item \textbf{分析贪心算法}：每次选覆盖最多未覆盖元素的集合，其近似比 $=O(\ln n)$。
+        用对偶变量构造下界，精确分析贪心的近似比。
+  \item \textbf{原始--对偶（Primal-Dual）近似算法}：同时维护原始解和对偶解，通过互补松弛条件设计近似算法，并用对偶界证明近似比。
+  \item \textbf{Dual Fitting 方法}：构造满足某个比例的对偶可行解，从而间接分析原始（整数）贪心解的质量。
+\end{itemize}
+
+\noindent\textbf{含代价的集合覆盖（推广）}：若集合 $S$ 有代价 $c(S)$，ILP 变为：
+\[
+  \min\;\sum_{S}c(S)x_S,\quad \sum_{S:\,e\in S}x_S\ge 1,\quad x_S\in\{0,1\}.
+\]
+对偶为：$\max\;\sum_{e}y_e,\;\sum_{e\in S}y_e\le c(S)\;(\forall S),\;y_e\ge0$。
+
+\keypoint{LP 应用的核心链条：组合问题 $\to$ ILP 建模 $\to$ LP 松弛（连续化）$\to$ 对偶（理解结构）$\to$ 近似算法（整数化）。全幺模矩阵保证某些 LP 自动有整数最优解，不需要舍入。}
+
+\pitfall{LP 松弛解不一定是整数，舍入可能破坏可行性或使近似比变差。需要专门的舍入技术（如随机舍入、贪心舍入）并分析损失。}
+
+% ============================================================
+% Ch15–Ch23 扩充版笔记（仅正文，无 preamble / \begin{document}）
+% ============================================================
+
+% ------------------------------------------------------------------
+\lecturewithnumber{15}{15.pdf}{多项式归约与经典困难问题}{覆盖、SAT、Hamilton、Subset Sum、Knapsack}
+% ------------------------------------------------------------------
+
+\section*{动机：为什么学归约？}
+
+有些问题也许根本没有高效算法——不是我们还没想到，而是它本质上就很难。
+归约是证明这一点的工具。
+它的核心逻辑是：\textbf{如果问题 $A$ 能"变换"成问题 $B$，那么 $B$ 至少和 $A$ 一样难。}
+
+一个日常比喻：假设你知道"翻译古希腊文"很难。现在有人给你一道题，
+你发现只要会翻译古希腊文就能解这道题，那这道题至少和翻译古希腊文一样难。
+这就是归约的精神。
+
+\pitfall{归约的方向极容易写反！我们说"$A$ 归约到 $B$"（$A \le_p B$），
+意思是把 $A$ 的实例变成 $B$ 的实例，用 $B$ 的求解器来解 $A$。
+因此：若 $B$ 容易，则 $A$ 也容易；若 $A$ 难，则 $B$ 也难。
+新手最常犯的错：想证明 $B$ 难，却把 $B$ 归约到 $A$，方向完全相反。}
+
+\section{多项式时间归约}
+
+\begin{definition}
+问题 $A$ \textbf{多项式时间归约}到问题 $B$，记作 $A \le_p B$，
+表示存在多项式时间可计算的变换 $f$，使得对任意输入 $x$：
+\[
+  x \in A \iff f(x) \in B.
+\]
+\end{definition}
+
+归约有三大用途：
+\begin{enumerate}
+  \item \textbf{设计算法}：若 $A \le_p B$ 且 $B$ 有多项式算法，则 $A$ 也有多项式算法。
+  \item \textbf{证明困难性}：若 $A \le_p B$ 且 $A$ 没有多项式算法（或被认为没有），则 $B$ 也没有。
+  \item \textbf{证明等价}：若 $A \le_p B$ 且 $B \le_p A$，则两问题同样难，记 $A \equiv_p B$。
+\end{enumerate}
+
+\keypoint{
+  写一个正确的归约必须说明三件事：
+  （1）构造 $f$ 是多项式时间的；
+  （2）若原实例是 yes，则 $f$ 的输出也是 yes；
+  （3）若 $f$ 的输出是 yes，则原实例也是 yes。
+  缺一不可。
+}
+
+\section{覆盖与打包：Independent Set $\equiv_p$ Vertex Cover}
+
+\subsection{直觉}
+
+独立集（Independent Set，IS）问你能否找到 $k$ 个互不相邻的顶点；
+顶点覆盖（Vertex Cover，VC）问你能否用 $k$ 个顶点覆盖所有边。
+乍一看这是两个不同的问题，但其实它们是\textbf{同一件事的两面}：
+选了独立集，剩下的顶点就构成顶点覆盖。
+
+\begin{theorem}
+  $\text{Independent Set} \equiv_p \text{Vertex Cover}$。
+  具体地：$S$ 是 $G$ 的大小为 $k$ 的独立集，当且仅当 $V \setminus S$ 是大小为 $|V|-k$ 的顶点覆盖。
+\end{theorem}
+
+\begin{proof}
+（$\Rightarrow$）设 $S$ 是独立集。对任意边 $(u,v) \in E$，
+因为 $S$ 是独立集，$u,v$ 不能同时在 $S$ 中，故至少一个在 $V \setminus S$ 中，边被覆盖。
+
+（$\Leftarrow$）设 $V \setminus S$ 是顶点覆盖。对任意边 $(u,v)$，
+至少一个端点在 $V \setminus S$ 中，故 $u,v$ 不能同时在 $S$ 中，$S$ 是独立集。
+\end{proof}
+
+\subsection{5 节点图的具体例子}
+
+考虑如下 5 节点图：
+\[
+  V = \{1,2,3,4,5\},\quad
+  E = \{(1,2),(1,3),(2,3),(3,4),(4,5)\}.
+\]
+
+找大小为 2 的独立集：取 $S = \{2, 5\}$。
+检验：$(2,5)$ 不是边，$2$ 与 $5$ 互不相邻，合法。
+
+对应的顶点覆盖是 $V \setminus S = \{1, 3, 4\}$，大小为 3。
+验证：
+\begin{itemize}
+  \item $(1,2)$：端点 1 在覆盖中 $\checkmark$
+  \item $(1,3)$：端点 1 在覆盖中 $\checkmark$
+  \item $(2,3)$：端点 3 在覆盖中 $\checkmark$
+  \item $(3,4)$：端点 3 和 4 均在覆盖中 $\checkmark$
+  \item $(4,5)$：端点 4 在覆盖中 $\checkmark$
+\end{itemize}
+所有边均被覆盖，$\{1,3,4\}$ 确实是顶点覆盖。
+
+\section{3SAT $\le_p$ Independent Set（本章最重要归约！）}
+
+\subsection{直觉}
+
+3SAT 问：给定 CNF，每个子句有 3 个字面量，有没有满足赋值？
+Independent Set 问：图中有没有 $k$ 个互不相邻的顶点？
+
+归约的核心想法是：\textbf{把每个子句变成一个三角形}（三个字面量顶点）——
+每个子句只能选一个满足的字面量，三角形保证选多了就相邻了；
+\textbf{再在互补字面量之间连边}——$x_i$ 和 $\neg x_i$ 不能同时选，
+这防止了矛盾赋值。
+
+\subsection{构造}
+
+给定 3SAT 公式 $\varphi$ 有子句 $C_1, \ldots, C_m$，每个子句有 3 个字面量：
+\begin{itemize}
+  \item 对每个子句 $C_j = (\ell_{j,1} \vee \ell_{j,2} \vee \ell_{j,3})$，
+        建立三个顶点 $v_{j,1}, v_{j,2}, v_{j,3}$，并在三者之间连边（三角形）。
+  \item 若 $\ell_{j,r}$ 与 $\ell_{k,s}$ 互补（一个是 $x_i$，另一个是 $\neg x_i$），
+        则在 $v_{j,r}$ 与 $v_{k,s}$ 之间连边。
+\end{itemize}
+问：图中是否有大小为 $m$（子句数）的独立集？
+
+\subsection{完整例子：3 个子句}
+
+公式：
+\[
+  \varphi = (\underbrace{x_1 \vee \neg x_2 \vee x_3}_{C_1})
+            \wedge (\underbrace{\neg x_1 \vee x_2 \vee x_3}_{C_2})
+            \wedge (\underbrace{x_1 \vee x_2 \vee \neg x_3}_{C_3}).
+\]
+
+顶点：
+\begin{align*}
+  C_1 &\to v_{1,1}(x_1),\ v_{1,2}(\neg x_2),\ v_{1,3}(x_3)\\
+  C_2 &\to v_{2,1}(\neg x_1),\ v_{2,2}(x_2),\ v_{2,3}(x_3)\\
+  C_3 &\to v_{3,1}(x_1),\ v_{3,2}(x_2),\ v_{3,3}(\neg x_3)
+\end{align*}
+
+三角形内部边（子句内）：每个子句内 3 条，共 9 条。
+
+互补连边（跨子句，仅列举关键几对）：
+\begin{itemize}
+  \item $v_{1,1}(x_1) \leftrightarrow v_{2,1}(\neg x_1)$
+  \item $v_{1,2}(\neg x_2) \leftrightarrow v_{2,2}(x_2)$，$v_{1,2}(\neg x_2) \leftrightarrow v_{3,2}(x_2)$
+  \item $v_{1,3}(x_3) \leftrightarrow v_{3,3}(\neg x_3)$，$v_{2,3}(x_3) \leftrightarrow v_{3,3}(\neg x_3)$
+  \item $v_{3,1}(x_1) \leftrightarrow v_{2,1}(\neg x_1)$
+\end{itemize}
+
+\textbf{验证 yes → yes：}令 $x_1=\mathsf{T}, x_2=\mathsf{T}, x_3=\mathsf{T}$，
+则 $C_1$ 由 $x_1$ 满足，$C_2$ 由 $x_2$ 满足，$C_3$ 由 $x_1$ 满足。
+选 $v_{1,1}(x_1), v_{2,2}(x_2), v_{3,1}(x_1)$：
+\begin{itemize}
+  \item $v_{1,1}$ 与 $v_{2,2}$：不互补（$x_1 \ne \pm x_2$），且来自不同子句，不在同一三角形，无边。
+  \item $v_{1,1}$ 与 $v_{3,1}$：同为 $x_1$，不互补，无互补边；来自不同子句，无三角形边。
+  \item $v_{2,2}$ 与 $v_{3,1}$：$x_2 \ne \pm x_1$，无互补边；来自不同子句，无三角形边。
+\end{itemize}
+三点互不相邻，构成大小为 3 的独立集。$\checkmark$
+
+\textbf{验证 no → no：}若公式不可满足，则任何赋值均有某子句不满足，
+独立集无法从该子句选出代表顶点，大小不能达到 $m$。
+
+\section{Vertex Cover $\le_p$ Set Cover}
+
+把每条边看作待覆盖的元素，每个顶点 $v$ 对应其 incident 边集合 $S_v$。
+选择顶点覆盖所有边等价于选择集合覆盖所有元素。归约多项式，等价性显然。
+
+\section{SAT $\le_p$ 3SAT}
+
+任意子句 $(\ell_1 \vee \cdots \vee \ell_k)$ 可引入辅助变量链式拆分：
+\[
+  (\ell_1 \vee \ell_2 \vee y_1) \wedge (\neg y_1 \vee \ell_3 \vee y_2)
+  \wedge \cdots \wedge (\neg y_{k-3} \vee \ell_{k-1} \vee \ell_k).
+\]
+长度 $k \ge 4$ 的子句变成 $k-2$ 个长度为 3 的子句，变量数线性增长。
+长度为 1 或 2 的子句用"填充"处理（重复文字）。
+
+\section{Hamilton Cycle $\le_p$ TSP}
+
+\textbf{直觉：}把有向图的存在性问题变成带权图的优化问题。
+
+构造：给定图 $G=(V,E)$，建立完全图 $K_n$：
+\[
+  w(u,v) = \begin{cases} 1 & (u,v) \in E \\ 2 & (u,v) \notin E \end{cases}
+\]
+$G$ 有 Hamilton cycle $\iff$ $K_n$ 中存在权重恰好为 $n$ 的 TSP tour。
+（任何使用非原图边的 tour 权重至少为 $n+1$。）
+
+\section{Subset Sum $\le_p$ Knapsack}
+
+Subset Sum：给定整数集 $\{a_1,\ldots,a_n\}$ 和目标 $T$，
+问是否有子集和恰为 $T$？
+
+嵌入 Knapsack：令物品 $i$ 的重量 $w_i = a_i$，价值 $v_i = a_i$，背包容量 $W = T$，目标价值 $P = T$。
+则 Subset Sum 有解 $\iff$ Knapsack 能装到价值恰为 $T$（重量也恰为 $T$）。
+
+% ------------------------------------------------------------------
+\lecture{16.pdf}{复杂性类}{P、NP、NP-complete、co-NP、NP-hard}
+% ------------------------------------------------------------------
+
+\section*{动机：给问题的难度分类}
+
+多项式归约给了我们比较问题难度的工具，但我们还需要"大分类"来描述整个计算世界的结构。
+P、NP、NP-complete 就是这样的分类框架。
+理解它们，就理解了"什么能快速解决、什么可能永远无法快速解决"这一计算的根本边界。
+
+\section{P 类}
+
+\begin{definition}
+$P$ 是可由确定性图灵机在\textbf{多项式时间}内求解的决策问题类。
+\end{definition}
+
+\textbf{直觉：}P 就是"能快速解决的问题"。典型例子：
+\begin{itemize}
+  \item 排序（$O(n \log n)$）
+  \item 最短路（Dijkstra，$O(m \log n)$）
+  \item 最大流（$O(m^2)$ 或更快）
+  \item 线性规划（多项式时间）
+  \item 素性测试（AKS 算法，2002 年证明在 P 中）
+\end{itemize}
+
+\section{NP 类}
+
+\begin{definition}
+$\NP$ 是 yes 实例有\textbf{多项式长度证书}，且证书可在多项式时间内验证的决策问题类。
+\end{definition}
+
+\textbf{直觉：}NP 是"答案容易验证但可能很难找到"的问题。
+
+用\textbf{数独}来比喻：解一道数独可能需要很长时间，但如果有人给你一个填好的答案，
+你只需逐行逐列逐宫格检查，几分钟就能验证对不对。
+SAT 也是如此：找一个满足赋值可能很难，但给你一个赋值，
+代入每个子句检查一遍就能验证。
+
+典型 $\NP$ 问题及其证书：
+\begin{itemize}
+  \item \textbf{SAT}：证书 = 变量赋值（可直接验证每个子句是否被满足）
+  \item \textbf{Hamilton Cycle}：证书 = 顶点排列（验证相邻顶点间有边，且包含所有顶点）
+  \item \textbf{3-Coloring}：证书 = 每个顶点的颜色（验证每条边两端颜色不同）
+  \item \textbf{Subset Sum}：证书 = 子集本身（验证和等于目标值）
+\end{itemize}
+
+\begin{remark}
+显然 $P \subseteq \NP$：若能在多项式时间内解决，当然也能在多项式时间内验证（直接运行算法）。
+\end{remark}
+
+\section{NP-complete}
+
+\begin{definition}
+问题 $B$ 是 \textbf{NP-complete（NPC）} 若：
+\begin{enumerate}
+  \item $B \in \NP$；
+  \item 对任意 $A \in \NP$，有 $A \le_p B$（$B$ 是 $\NP$ 中最难的一批）。
+\end{enumerate}
+\end{definition}
+
+\textbf{直觉：}NPC 问题是 $\NP$ 中"最难的一批"——
+若你能高效解决任何一个 NPC 问题，你就能高效解决 $\NP$ 中所有问题（即 $P = \NP$）。
+
+\subsection{Cook--Levin 定理}
+
+\begin{theorem}[Cook--Levin, 1971/1973]
+\textbf{SAT 是第一个 NP-complete 问题。}
+\end{theorem}
+
+\proofidea{
+直觉如下：$\NP$ 中任意问题 $A$ 都有一个多项式时间验证器，
+这个验证器本质上是一个布尔电路（或图灵机步骤序列）。
+我们可以把电路的每个门的"当输入为某值时输出为何值"编码为 SAT 子句——
+这就是 Tseitin 编码的精神。
+整个电路的输入（证书候选）是未知变量，要求电路输出为真等价于要求 SAT 公式可满足。
+因此 $A \le_p \text{SAT}$，对所有 $A \in \NP$ 成立。
+}
+
+有了 SAT 是 NPC 作为起点，后续只需从 SAT（或其他已知 NPC 问题）归约，
+就可以证明更多问题是 NPC：
+\[
+  \text{SAT} \le_p \text{3SAT} \le_p \text{Independent Set} \le_p \text{Vertex Cover} \le_p \text{Set Cover}
+\]
+
+\subsection{证明 NP-complete 的标准模板}
+
+\begin{enumerate}
+  \item \textbf{证明属于 NP}：给出多项式长度证书和多项式时间验证算法。
+  \item \textbf{选择一个已知 NPC 问题} $A$（通常选结构相近的）。
+  \item \textbf{构造多项式归约} $A \le_p B$。
+  \item \textbf{证明 yes/no 等价}：yes 侧和 no 侧各证一遍。
+\end{enumerate}
+
+\pitfall{方向必须是从已知 NPC 归约到待证问题 $B$（$A \le_p B$），
+而不是从 $B$ 归约到 $A$。后者只能说明"如果 $B$ 能解，则 $A$ 也能解"，
+对证明 $B$ 的难度毫无帮助。}
+
+\section{co-NP}
+
+\begin{definition}
+$\coNP$ 是补问题在 $\NP$ 中的问题类，等价地，no 实例有多项式可验证证书的问题类。
+\end{definition}
+
+\textbf{直觉：}$\NP$ 是"yes 容易验证"；$\coNP$ 是"no 容易验证"。
+
+例如：
+\begin{itemize}
+  \item \textbf{TAUTOLOGY}（公式是否永真）：$\NP$ 的补 SAT（不可满足）是 $\coNP$ 完全的。
+  \item \textbf{不存在 Hamilton cycle}：证书是所有可能路径都不满足的理由——很难写出短证书。
+  \item \textbf{线性规划可行性}：同时在 $\NP$ 和 $\coNP$ 中（原问题可行性和不可行性都有短证书：原解和对偶不可行证书）。
+\end{itemize}
+
+若一个问题同时在 $\NP \cap \coNP$ 中，说明 yes/no 两侧都有短证书，
+这是"好刻画"，通常暗示问题可能在 $P$ 中。
+
+\section{NP-hard}
+
+\begin{definition}
+$B$ 是 \textbf{NP-hard} 若对所有 $A \in \NP$，有 $A \le_p B$，
+但 $B$ 本身不必属于 $\NP$（不必是决策问题）。
+\end{definition}
+
+NP-hard $=$ "至少和 NPC 一样难，但可以更难或不是决策问题"。
+例如：
+\begin{itemize}
+  \item \textbf{最优化版本的 Knapsack}（求最大价值，不是判断是否超过阈值）：NP-hard 但不在 NP 中
+  \item \textbf{停机问题}：NP-hard（其实更难，不可判定）
+\end{itemize}
+
+\section{复杂性类的包含关系}
+
+已知的确定关系：
+\[
+  P \subseteq \NP \subseteq \PSPACE \subseteq \EXPTIME
+\]
+其中 $P \ne \EXPTIME$ 已被证明（时间层次定理），因此上面链条中至少一处不等号成立。
+
+$P = \NP$？是计算机科学最重要的开放问题。
+若任一 NPC 问题有多项式算法，则 $P = \NP$；
+若能证明任一 NPC 问题不在 $P$ 中，则 $P \ne \NP$。
+
+\keypoint{
+  P = "能快速解"；
+  NP = "解能快速验证"（不一定能快速找到）；
+  NPC = "NP 中最难的，解决一个等于解决所有"；
+  co-NP = "no 能快速验证"；
+  NP-hard = "至少和 NPC 一样难，不必是决策问题"。
+}
+
+% ------------------------------------------------------------------
+\lecture{17.pdf}{超越 NP：PSPACE}{QBF、规划、游戏}
+% ------------------------------------------------------------------
+
+\section*{动机：有些问题比 NP 还难}
+
+$\NP$ 问题已经够难了，但还有一类更难的问题：\textbf{对抗性博弈}和\textbf{规划}。
+象棋、围棋、地图文字游戏——先手有没有必胜策略？
+这类问题的难点不只是"找一个答案"，而是要考虑\textbf{两个玩家的所有可能对抗序列}，
+游戏树可以指数级大。$\PSPACE$ 就是描述这类问题的复杂性类。
+
+\section{PSPACE}
+
+\begin{definition}
+$\PSPACE$ 是可用\textbf{多项式空间}（但时间不限）求解的决策问题类。
+\end{definition}
+
+\textbf{直觉：}想象你有一个多项式大小的"草稿纸"（工作空间），
+但可以在上面反复擦写，运算时间不限。
+你能解决的问题就在 $\PSPACE$ 中。
+
+\begin{proposition}
+$P \subseteq \NP \subseteq \PSPACE \subseteq \EXPTIME$
+\end{proposition}
+
+为什么 $\NP \subseteq \PSPACE$？$\NP$ 问题的验证器只需多项式空间，
+用深度优先搜索逐个枚举候选证书，复用空间，所有候选都否定才输出 no。
+运行时间可能指数，但空间是多项式的。
+
+\section{量化布尔公式 QBF（PSPACE 完全问题）}
+
+\subsection{直觉：SAT 加上"博弈量词"}
+
+SAT 问："\textbf{存在}一个赋值使公式为真？"
+QBF 问："\textbf{存在} $x_1$ \textbf{使得对所有} $x_2$ \textbf{存在} $x_3 \ldots$ 公式为真？"
+
+用博弈来理解：$\exists$ 是玩家 A（希望公式为真）的选择，$\forall$ 是玩家 B（希望为假）的选择。
+QBF 问的是：A 有没有必胜策略？
+
+\begin{definition}
+量化布尔公式（QBF）形如
+\[
+  Q_1 x_1\, Q_2 x_2 \cdots Q_n x_n\, \varphi(x_1, \ldots, x_n),
+\]
+其中 $Q_i \in \{\exists, \forall\}$，$\varphi$ 是不含量词的布尔公式。
+\end{definition}
+
+\begin{theorem}
+QBF 是 PSPACE-complete 的。
+\end{theorem}
+
+QBF 在 PSPACE 中：用递归将量词一层层剥开，
+对 $\exists x$ 枚举 $x=0,1$ 取或，对 $\forall x$ 枚举取与，
+递归深度 $n$，空间是多项式的。
+
+\subsection{小例子：2 变量 QBF}
+
+\[
+  \exists x_1\, \forall x_2\, (x_1 \vee x_2) \wedge (\neg x_1 \vee \neg x_2).
+\]
+
+评估过程：
+\begin{itemize}
+  \item 令 $x_1 = \mathsf{T}$：
+    \begin{itemize}
+      \item $x_2 = \mathsf{T}$：$(\mathsf{T} \vee \mathsf{T}) \wedge (\mathsf{F} \vee \mathsf{F}) = \mathsf{T} \wedge \mathsf{F} = \mathsf{F}$。失败。
+    \end{itemize}
+  \item 令 $x_1 = \mathsf{F}$：
+    \begin{itemize}
+      \item $x_2 = \mathsf{T}$：$(\mathsf{F} \vee \mathsf{T}) \wedge (\mathsf{T} \vee \mathsf{F}) = \mathsf{T}$。
+      \item $x_2 = \mathsf{F}$：$(\mathsf{F} \vee \mathsf{F}) \wedge (\mathsf{T} \vee \mathsf{T}) = \mathsf{F}$。失败。
+    \end{itemize}
+\end{itemize}
+
+对 $x_1 = \mathsf{T}$，$x_2 = \mathsf{T}$ 时公式假，故 $\exists x_1$ 不能保证 $\forall x_2$ 成立。
+此 QBF 为\textbf{假}。
+
+\section{Geography 游戏（PSPACE 完全问题）}
+
+\subsection{规则}
+
+给定有向图 $G=(V,E)$ 和起点 $s$。两名玩家轮流移动，
+每步沿有向边走到一个\textbf{从未访问过的顶点}，
+不能移动的玩家\textbf{负}。问题：先手是否有必胜策略？
+
+\begin{theorem}
+Geography 游戏是 PSPACE-complete 的。
+\end{theorem}
+
+\subsection{4 节点例子：完整博弈树}
+
+\[
+  V = \{s, a, b, c\},\quad
+  E = \{(s,a),(s,b),(a,b),(a,c),(b,c)\}.
+\]
+起点 $s$，先手（玩家 I）先走。
+
+\begin{center}
+\begin{tabular}{lll}
+  \toprule
+  当前位置 & 已访问 & 可选移动 \\
+  \midrule
+  $s$（I 走）& $\{s\}$ & $a$ 或 $b$ \\
+  \quad $\to a$（II 走）& $\{s,a\}$ & $b$ 或 $c$ \\
+  \quad\quad $\to b$（I 走）& $\{s,a,b\}$ & $c$（唯一）\\
+  \quad\quad\quad $\to c$（II 走）& $\{s,a,b,c\}$ & 无移动 $\Rightarrow$ II 负，I 胜 \\
+  \quad\quad $\to c$（I 走）& $\{s,a,c\}$ & 无 $c$ 的出边未访问 $\Rightarrow$ I 负，II 胜 \\
+  \quad $\to b$（II 走）& $\{s,b\}$ & $c$（唯一）\\
+  \quad\quad $\to c$（I 走）& $\{s,b,c\}$ & 无移动 $\Rightarrow$ I 负，II 胜 \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+先手从 $s$ 走：
+\begin{itemize}
+  \item 走 $a$：后手走 $b$ 时先手走 $c$ 后必胜；但后手走 $c$ 时先手无路可走，败。
+        后手是理性的，会走 $c$，先手败。
+  \item 走 $b$：后手走 $c$，先手无路可走，先手败。
+\end{itemize}
+结论：先手\textbf{必败}，后手有必胜策略。
+
+\keypoint{
+  $\NP$ 关注"存在一个短证书"；$\PSPACE$ 能表达量词交替——
+  博弈（$\exists$ 我选 $\forall$ 对手选），规划（$\exists$ 我选 $\forall$ 环境反应）。
+  量词交替是理解 $\PSPACE$ 的核心图像。
+}
+
+% ------------------------------------------------------------------
+\lecture{18.pdf}{DPLL 与 SAT 求解}{Tseitin 编码、回溯、传播、学习、CDCL}
+% ------------------------------------------------------------------
+
+\section*{动机：NP-complete 不等于实践中无法解决}
+
+SAT 是 NP-complete，理论上没有已知多项式算法，
+但现代 SAT solver（如 MiniSat、Z3）能在\textbf{秒级内求解百万变量的实例}。
+原因是工业实例有很强的结构，配合传播、冲突学习、启发式，
+搜索树可以被极大剪枝。
+
+\section{Tseitin 编码}
+
+\subsection{直觉："给每个中间结果起个名字"}
+
+如果直接把一棵布尔公式树展开为 CNF，可能指数爆炸。
+Tseitin 编码的方法是：\textbf{为每个子公式（门的输出）引入一个新变量}，
+再加入几个子句来保证新变量和子公式等价。
+
+\subsection{例子}
+
+公式 $z = (x \wedge y)$，引入新变量 $z$，编码"$z$ 当且仅当 $x \wedge y$"：
+\[
+  (z \to x \wedge y) \wedge (x \wedge y \to z)
+\]
+化为 CNF：
+\[
+  (\neg z \vee x) \wedge (\neg z \vee y) \wedge (z \vee \neg x \vee \neg y).
+\]
+
+类似地，$z = (x \vee y)$ 编码为：
+\[
+  (z \vee \neg x) \wedge (z \vee \neg y) \wedge (\neg z \vee x \vee y).
+\]
+
+对任意规模 $n$ 的电路，Tseitin 编码产生 $O(n)$ 个子句，$O(n)$ 个变量。
+
+\section{DPLL 基本框架}
+
+\subsection{直觉："带剪枝的暴力搜索"}
+
+DPLL（Davis–Putnam–Logemann–Loveland）的本质是在变量赋值的二叉树上深度优先搜索，
+但在每个节点上先执行"传播"（逻辑推断）以减少搜索空间。
+
+\begin{lstlisting}[language={}]
+DPLL(公式 F, 部分赋值 alpha):
+  1. 单子句传播：
+     while F 中有单子句 (l):
+         令 alpha(var(l)) = 使 l 为真的值
+         用 alpha 化简 F
+  2. 若 F 为空子句集（所有子句满足）: return SAT, alpha
+  3. 若 F 含空子句（某子句所有文字为假）: return UNSAT
+  4. 选择未赋值变量 x（启发式选择）
+  5. if DPLL(F, alpha 并 {x=T}) == SAT: return SAT
+  6. return DPLL(F, alpha 并 {x=F})
+\end{lstlisting}
+
+\subsection{完整例子：3 变量 4 子句}
+
+公式：
+\[
+  F = \underbrace{(x_1 \vee \neg x_2 \vee x_3)}_{C_1}
+    \wedge \underbrace{(\neg x_1 \vee x_2)}_{C_2}
+    \wedge \underbrace{(\neg x_2 \vee \neg x_3)}_{C_3}
+    \wedge \underbrace{(x_1 \vee x_2)}_{C_4}
+\]
+
+\textbf{步骤 1}：无单子句，选 $x_1 = \mathsf{T}$。
+
+化简：$C_1$ 满足（含 $x_1$），$C_4$ 满足，$C_2$ 变为 $(\neg x_1 \vee x_2) \to (x_2)$（单子句！），$C_3$ 不变。
+
+\textbf{步骤 2}：发现单子句 $C_2 = (x_2)$，强制 $x_2 = \mathsf{T}$。
+
+化简：$C_2$ 满足，$C_3$ 变为 $(\neg x_2 \vee \neg x_3) \to (\neg x_3)$（单子句！）。
+
+\textbf{步骤 3}：发现单子句 $C_3 = (\neg x_3)$，强制 $x_3 = \mathsf{F}$。
+
+化简：$C_3$ 满足，$C_1 = (x_1 \vee \neg x_2 \vee x_3)$ 已经由 $x_1=\mathsf{T}$ 满足。
+
+所有子句满足，返回 SAT，赋值 $x_1 = \mathsf{T}, x_2 = \mathsf{T}, x_3 = \mathsf{F}$。
+
+\textbf{验证：}
+\begin{itemize}
+  \item $C_1 = (\mathsf{T} \vee \mathsf{F} \vee \mathsf{F}) = \mathsf{T}$ $\checkmark$
+  \item $C_2 = (\mathsf{F} \vee \mathsf{T}) = \mathsf{T}$ $\checkmark$
+  \item $C_3 = (\mathsf{F} \vee \mathsf{T}) = \mathsf{T}$ $\checkmark$
+  \item $C_4 = (\mathsf{T} \vee \mathsf{T}) = \mathsf{T}$ $\checkmark$
+\end{itemize}
+
+\section{CDCL：从错误中学习}
+
+\subsection{直觉}
+
+DPLL 在冲突时只是\textbf{回溯}（撤销最近的决策）。
+CDCL（Conflict-Driven Clause Learning）更进一步：
+\textbf{分析冲突原因，学习一个新子句，以后避免重蹈覆辙，还能跳回到更早的决策层。}
+
+比喻：DPLL 像是走迷宫碰壁就退一步；CDCL 像是碰壁后\textbf{记笔记："此路不通的根本原因是第 3 步向左转，以后遇到类似情形直接跳过"}。
+
+\subsection{蕴含图（Implication Graph）}
+
+给每次决策赋值和由单子句传播推导出的赋值建立节点，
+推导关系建立有向边，最终到达冲突节点（$\bot$）。
+
+\textbf{小例子：}设 $x_1 = \mathsf{T}$（第 1 层决策），$x_2 = \mathsf{T}$（第 2 层决策），
+由 $(\neg x_1 \vee \neg x_2 \vee x_3)$ 推出 $x_3 = \mathsf{T}$，
+由 $(\neg x_3 \vee x_4)$ 推出 $x_4 = \mathsf{T}$，
+由 $(\neg x_2 \vee \neg x_4)$ 导致冲突（$x_2 = \mathsf{T}$ 且 $x_4 = \mathsf{T}$ 矛盾）。
+
+蕴含图显示：冲突的根本原因是 $x_1 = \mathsf{T}$ 和 $x_2 = \mathsf{T}$ 的组合。
+学习子句 $(\neg x_1 \vee \neg x_2)$，回跳到第 1 层，避免 $x_1=\mathsf{T}$ 时再尝试 $x_2 = \mathsf{T}$。
+
+\subsection{解析规则}
+
+学习子句通过\textbf{解析}推导：
+\[
+  \frac{(A \vee x) \quad (B \vee \neg x)}{A \vee B}
+\]
+反复解析，直到得到只含当前层一个文字的 1-UIP（Unit Implication Point）子句。
+
+\section{启发式}
+
+\begin{itemize}
+  \item \textbf{VSIDS}（Variable State Independent Decaying Sum）：
+        变量在冲突中出现则增加活跃度，定期乘以衰减因子，优先选活跃度高的变量。
+        这使求解器偏向最近冲突相关的变量，经验上效果极佳。
+  \item \textbf{Jeroslow--Wang}：短子句权重更高，优先满足短子句。
+\end{itemize}
+
+\keypoint{
+  DPLL = 带单子句传播的回溯搜索；
+  CDCL = DPLL + 冲突分析 + 学习子句 + 非时间序回跳（non-chronological backtracking）。
+  现代 SAT solver 的核心是 CDCL + VSIDS 启发式 + 随机重启。
+}
+
+% ------------------------------------------------------------------
+\lecture{19.pdf}{近似算法导论}{Vertex Cover、Set Cover、贪心分析}
+% ------------------------------------------------------------------
+
+\section*{动机：放弃精确，追求有保证的近似}
+
+面对 NP-hard 的优化问题，我们不得不放弃精确最优解的追求。
+但"随便"给一个解不够好——我们希望有\textbf{数学保证}：
+算法给出的解最差不超过最优解的 $\alpha$ 倍。
+这就是近似算法的目标。
+
+\section{近似比（Approximation Ratio）}
+
+\begin{definition}
+对最小化问题，算法 $A$ 是 $\alpha$-近似算法（$\alpha \ge 1$），若对所有实例 $I$：
+\[
+  A(I) \le \alpha \cdot \OPT(I).
+\]
+对最大化问题（$\alpha \le 1$）：
+\[
+  A(I) \ge \alpha \cdot \OPT(I).
+\]
+\end{definition}
+
+\textbf{直觉：}"最差情况下，我的解离最优解有多远？"
+
+证明近似比的关键挑战：$\OPT$ 是未知的！我们需要找到 $\OPT$ 的一个\textbf{下界}
+（最小化问题）或\textbf{上界}（最大化问题），然后把算法解与这个界比较。
+
+\section{Vertex Cover 2-近似}
+
+\subsection{算法}
+
+\begin{lstlisting}[language={}]
+VC-2-APPROX(图 G = (V, E)):
+  C = 空集
+  E' = E 的副本
+  while E' 非空:
+    任意选一条边 (u, v) in E'
+    C = C + {u, v}
+    从 E' 中删除所有以 u 或 v 为端点的边（即删除 incident 边）
+  return C
+\end{lstlisting}
+
+\proofidea{
+算法选出的边集 $M$ 构成一个匹配（每步选的边没有公共端点，因为 incident 边被删除）。
+任何顶点覆盖必须覆盖 $M$ 中的每条边，且覆盖一条边至少需要一个端点，
+所以 $\OPT \ge |M|$。算法选了 $2|M|$ 个顶点，故 $|C| = 2|M| \le 2\OPT$。
+}
+
+\subsection{6 节点图上的完整运行}
+
+图：$V = \{1,2,3,4,5,6\}$，
+$E = \{(1,2),(1,3),(2,4),(3,4),(4,5),(5,6)\}$。
+
+最优覆盖：$\{1, 4, 5\}$（大小 3，可验证）。
+
+算法运行：
+\begin{enumerate}
+  \item 选边 $(1,2)$，加入 $\{1,2\}$，删除 $(1,2),(1,3),(2,4)$（incident to 1 or 2）。剩余边：$\{(3,4),(4,5),(5,6)\}$。
+  \item 选边 $(3,4)$，加入 $\{3,4\}$，删除 $(3,4),(4,5)$（incident to 3 or 4）。剩余边：$\{(5,6)\}$。
+  \item 选边 $(5,6)$，加入 $\{5,6\}$，删除 $(5,6)$。剩余边：$\emptyset$。
+\end{enumerate}
+
+算法输出 $C = \{1,2,3,4,5,6\}$，大小 6。
+
+验证：$M = \{(1,2),(3,4),(5,6)\}$ 是匹配，$|M|=3$，
+$\OPT \ge 3$，$|C|=6=2|M| \le 2\OPT$。$\checkmark$
+
+（注：这是最坏情况，算法给出了 2 倍最优。）
+
+\section{Set Cover 贪心算法}
+
+\subsection{算法}
+
+\begin{lstlisting}[language={}]
+GREEDY-SET-COVER(全集 U, 集合族 S = {S_1,...,S_m}, 成本 c):
+  C = 空集（已选集合）
+  U' = U（未覆盖元素）
+  while U' 非空:
+    选择最小化 c(S_i) / |S_i and U'| 的集合 S_i
+    C = C + {S_i}
+    U' = U' \ S_i
+  return C
+\end{lstlisting}
+
+（无权版本：$c(S_i) = 1$，即每步选覆盖最多未覆盖元素的集合。）
+
+\subsection{6 元素 4 集合的完整例子}
+
+$U = \{1,2,3,4,5,6\}$，集合（无权，单位成本）：
+\begin{align*}
+  S_1 &= \{1,2,3,4\}\\
+  S_2 &= \{2,4,5,6\}\\
+  S_3 &= \{1,3,5\}\\
+  S_4 &= \{4,6\}
+\end{align*}
+
+最优解：$\{S_1, S_2\}$（两个集合覆盖所有 6 个元素）。
+
+贪心运行：
+
+\textbf{第 1 步}：未覆盖 $U' = \{1,2,3,4,5,6\}$。
+各集合覆盖数：$|S_1 \cap U'|=4$，$|S_2 \cap U'|=4$，$|S_3 \cap U'|=3$，$|S_4 \cap U'|=2$。
+选 $S_1$（覆盖最多，4 个）。$U' = \{5,6\}$，$C = \{S_1\}$。
+
+\textbf{第 2 步}：未覆盖 $U' = \{5,6\}$。
+$|S_2 \cap U'|=2$，$|S_3 \cap U'|=1$，$|S_4 \cap U'|=2$。
+选 $S_2$（或 $S_4$，并列，取 $S_2$）。$U' = \emptyset$，$C = \{S_1, S_2\}$。
+
+贪心也找到了最优解！（本例贪心恰好最优，一般不保证。）
+
+\subsection{$H_n$ 近似比分析}
+
+\begin{theorem}
+无权 Set Cover 贪心算法是 $H_n$-近似，其中 $H_n = \sum_{k=1}^{n} 1/k \le \ln n + 1$。
+\end{theorem}
+
+\proofidea{
+\textbf{Charging 论证：}当贪心选择集合 $S_i$ 时，将成本 1 均摊到 $S_i$ 新覆盖的每个元素，
+每个元素收费 $1/|S_i \cap U'_{\text{当时}}|$。
+
+考虑最优解中的任意集合 $S^*$（$|S^*| \le n$）。
+$S^*$ 内的元素被贪心覆盖时，最多有 $|S^*|$ 个元素未覆盖（当时），
+因此最早被覆盖的元素收费至多 $1/1 = 1$，第二个至多 $1/1$，……
+更精细地，$S^*$ 中第 $j$ 个被覆盖的元素，当时 $S^*$ 内还有 $|S^*|-j+1$ 个未覆盖，
+贪心选的集合覆盖数不少于 $|S^*|-j+1$（否则 $S^*$ 更优，矛盾），
+所以该元素收费至多 $1/(|S^*|-j+1)$。
+$S^*$ 内所有元素总收费至多 $H_{|S^*|} \le H_n$。
+最优解有 $\OPT$ 个集合，总收费（即贪心解大小）至多 $\OPT \cdot H_n$。
+}
+
+\keypoint{
+  近似算法的证明必须找到 $\OPT$ 的下界。
+  Vertex Cover 用匹配作下界（$\OPT \ge |M|$）；
+  Set Cover 用最优解的平均覆盖能力作下界。
+  这两种思路来自同一根源：LP 对偶。
+}
+
+% ------------------------------------------------------------------
+\lecture{20.pdf}{Steiner Tree 与 TSP}{度量闭包、MST 近似、Christofides}
+% ------------------------------------------------------------------
+
+\section*{动机：网络设计与物流路径}
+
+如何用最少的线路连接若干城市（Steiner Tree）？
+快递员如何规划走遍所有城市又回来的最短路径（TSP）？
+这两类问题在物流、芯片布线、网络规划中无处不在，都是 NP-hard，
+但度量条件下有很好的近似算法。
+
+\section{Metric Steiner Tree}
+
+\begin{definition}
+\textbf{Steiner Tree 问题}：给定图 $G=(V,E,w)$ 和终端集 $R \subseteq V$，
+找最小权连通树包含所有 $R$ 中节点（可使用非终端"Steiner 点"）。
+\end{definition}
+
+\textbf{直觉：}比最小生成树更灵活——可以借用额外的中间节点来减少总费用。
+
+度量版本：边权满足三角不等式（$w(u,v) \le w(u,z)+w(z,v)$）。
+
+\textbf{MST 型 2-近似}：
+
+\begin{enumerate}
+  \item 在终端集 $R$ 上建度量闭包（$R$ 中任意两点距离为原图最短路）。
+  \item 在度量闭包中求 MST $T'$。
+  \item 将 $T'$ 的闭包边展开为原图最短路，删环，得到 Steiner 树。
+\end{enumerate}
+
+\proofidea{
+最优 Steiner 树做一次完整的 DFS 遍历（每条边走两次），得到连接所有终端的巡游，
+代价 $2\OPT$。把巡游中非终端节点 shortcut，利用三角不等式代价不增，
+得到终端上的哈密顿路径，代价 $\le 2\OPT$。
+度量闭包上的 MST 代价不超过任何连接所有终端的哈密顿路径，
+故 $w(T') \le 2\OPT$。
+}
+
+\section{Metric TSP：为何一般 TSP 不可近似}
+
+\begin{proposition}
+若 $P \ne \NP$，一般 TSP（无三角不等式限制）对任意常数 $\alpha$ 均不存在 $\alpha$-近似。
+\end{proposition}
+
+\proofidea{
+若存在 $\alpha$-近似，可用它判定 Hamilton Cycle：
+给原图 $G$ 的边权设为 1，非边权设为 $\alpha n + 1$。
+若 $G$ 有 Hamilton Cycle，最优 TSP tour 代价为 $n$；
+若没有，任何 tour 至少用一条非边，代价 $\ge n+\alpha n > \alpha n$，
+无法被近似，矛盾。
+}
+
+\section{Metric TSP 的 2-近似（MST 双倍算法）}
+
+\textbf{算法：}
+
+\begin{enumerate}
+  \item 求图的 MST $T$。
+  \item 将 $T$ 的每条边复制（每条边变为两条），得到欧拉图（每个顶点度数为偶）。
+  \item 求欧拉回路。
+  \item 按欧拉回路顺序遍历顶点，\textbf{跳过}已经访问过的顶点（shortcut），得到哈密顿回路。
+\end{enumerate}
+
+\proofidea{
+$w(\text{MST}) \le w(\OPT)$：删去最优 tour 的任意一条边得到哈密顿路径，
+路径是生成树，MST 代价不超过。
+双倍边的欧拉回路代价 $= 2w(\text{MST}) \le 2\OPT$。
+Shortcut 利用三角不等式不增加代价。
+}
+
+\subsection{5 节点完全图例子}
+
+顶点 $\{1,2,3,4,5\}$，距离矩阵（满足三角不等式）：
+\[
+  d = \begin{pmatrix}
+    0 & 2 & 5 & 4 & 3\\
+    2 & 0 & 3 & 2 & 4\\
+    5 & 3 & 0 & 1 & 6\\
+    4 & 2 & 1 & 0 & 5\\
+    3 & 4 & 6 & 5 & 0
+  \end{pmatrix}
+\]
+
+\textbf{步骤 1}：MST（Kruskal）：
+\begin{itemize}
+  \item 选 $(3,4)$：$d=1$
+  \item 选 $(1,2)$：$d=2$
+  \item 选 $(2,4)$：$d=2$
+  \item 选 $(1,5)$：$d=3$
+\end{itemize}
+MST 边集 $\{(3,4),(1,2),(2,4),(1,5)\}$，总权 $1+2+2+3=8$。
+
+\textbf{步骤 2}：每条边复制，欧拉图。
+
+\textbf{步骤 3}：欧拉回路（例）：$1\to 2\to 4\to 3\to 4\to 2\to 1\to 5\to 1$。
+
+\textbf{步骤 4}：Shortcut（跳过已访问）：$1\to 2\to 4\to 3\to 5\to 1$。
+代价 $= d(1,2)+d(2,4)+d(4,3)+d(3,5)+d(5,1) = 2+2+1+6+3 = 14$。
+
+（注：$2 \times \text{MST} = 16 \ge 14$，三角不等式确保 shortcut 有时反而更短。）
+
+\section[Christofides 3/2-近似]{Christofides $3/2$-近似}
+
+\subsection{直觉}
+
+MST 双倍算法浪费了：每条边走两遍，但只有奇度顶点才是"必须走两遍"的根源。
+Christofides 算法的想法是：\textbf{只对奇度顶点求最小完美匹配来补充度数}，
+这样每个顶点度数变为偶，再求欧拉回路。
+
+\begin{theorem}[Christofides 1976]
+Metric TSP 有 $3/2$-近似算法。
+\end{theorem}
+
+\textbf{算法：}
+
+\begin{enumerate}
+  \item 求 MST $T$，总权 $w(T)$。
+  \item 找出 $T$ 中所有奇度顶点的集合 $O$（注意 $|O|$ 一定是偶数）。
+  \item 在 $O$ 的诱导子图（度量距离）上求\textbf{最小权完美匹配} $M$。
+  \item 合并 $T \cup M$（所有顶点度数为偶数），求欧拉回路，shortcut 得哈密顿回路。
+\end{enumerate}
+
+\proofidea{
+$w(T) \le \OPT$（同上）。
+
+最优 tour 经过 $O$ 中所有顶点形成若干交替路段，
+可分割成 $O$ 上的两个完美匹配，两个匹配代价之和 $\le \OPT$（三角不等式），
+所以最小完美匹配 $w(M) \le \OPT/2$。
+
+总代价 $w(T)+w(M) \le \OPT + \OPT/2 = 3\OPT/2$。
+}
+
+\subsection{继续上面的 5 节点例子}
+
+MST 中各顶点度数：
+\begin{itemize}
+  \item 顶点 1：连接 $(1,2),(1,5)$，度 2（偶）
+  \item 顶点 2：连接 $(1,2),(2,4)$，度 2（偶）
+  \item 顶点 3：连接 $(3,4)$，度 1（奇）
+  \item 顶点 4：连接 $(3,4),(2,4)$，度 2（偶）
+  \item 顶点 5：连接 $(1,5)$，度 1（奇）
+\end{itemize}
+奇度集合 $O = \{3, 5\}$，只需一条边的完美匹配：
+$M = \{(3,5)\}$，$d(3,5)=6$。
+
+合并后欧拉图边：$\{(3,4),(1,2),(2,4),(1,5),(3,5)\}$，所有顶点度数：
+顶点 3 度 2，顶点 5 度 2，其他保持偶数。
+
+求欧拉回路（例）：$1\to 2\to 4\to 3\to 5\to 1$。
+这已经是哈密顿回路（无重复顶点），代价 $= 2+2+1+6+3 = 14$。
+
+MST + 匹配总权：$8+6=14 \le 3/2 \times \OPT$，只要 $\OPT \ge 10$ 即满足。
+
+\pitfall{
+  TSP 的 shortcut 只在满足三角不等式时保证不增代价。
+  一般 TSP（无三角不等式）不能直接用 MST double-tree 或 Christofides 证明近似比。
+}
+
+% ------------------------------------------------------------------
+\lecture{21.pdf}{多项式时间近似方案}{PTAS、FPTAS、Knapsack、Bin Packing}
+% ------------------------------------------------------------------
+
+\section*{动机：能不能想多准就多准？}
+
+2-近似或 $H_n$-近似对有些应用还不够精确。
+能否设计算法，使得给定任意精度参数 $\varepsilon$，
+就能在多项式时间内给出误差不超过 $\varepsilon$ 的近似解？
+这就是 PTAS 和 FPTAS 的目标。
+
+\section{PTAS 与 FPTAS}
+
+\begin{definition}
+\textbf{PTAS}（多项式时间近似方案）是一族算法 $\{A_\varepsilon\}_{\varepsilon>0}$：
+对任意固定 $\varepsilon > 0$，$A_\varepsilon$ 在输入规模 $n$ 的多项式时间内给出 $(1+\varepsilon)$-近似。
+允许时间复杂度依赖 $\varepsilon$（如 $O(n^{1/\varepsilon})$），但对固定 $\varepsilon$ 是多项式的。
+\end{definition}
+
+\begin{definition}
+\textbf{FPTAS}（完全多项式时间近似方案）要求时间复杂度同时关于 $n$ 和 $1/\varepsilon$ 都是多项式的
+（如 $O(n^2/\varepsilon)$ 或 $O(n^3/\varepsilon^2)$）。
+\end{definition}
+
+\textbf{直觉区别：}
+PTAS 是"给定精度后运行时间是多项式"，但如果 $\varepsilon$ 本身是输入（允许任意小），
+运行时间可能爆炸。FPTAS 则对精度也鲁棒，是最强的近似保证。
+
+\begin{remark}
+FPTAS $\Rightarrow$ PTAS，反之不然。
+Knapsack 有 FPTAS；一般背包问题的更难变种（如多维背包）通常只有 PTAS，甚至没有。
+\end{remark}
+
+\section{Knapsack 的伪多项式 DP}
+
+\textbf{直觉："按价值做 DP，而非按重量"}
+
+0/1 Knapsack：$n$ 个物品，每个有重量 $w_i$ 和价值 $v_i$，容量 $W$，最大化总价值。
+
+\textbf{按重量做 DP}（传统）：$dp[i][w] = $ 用前 $i$ 个物品、重量不超过 $w$ 的最大价值。时间 $O(nW)$，伪多项式（$W$ 可能是指数大的数）。
+
+\textbf{按价值做 DP}（用于 FPTAS）：令 $V = \sum_i v_i$ 为总价值上界。
+\[
+  \text{dp}[i][p] = \text{用前 } i \text{ 个物品达到恰好价值 } p \text{ 所需的最小重量}.
+\]
+初始：$\text{dp}[0][0] = 0$，其余为 $+\infty$。
+转移：
+\[
+  \text{dp}[i][p] = \min\bigl(\text{dp}[i-1][p],\ \text{dp}[i-1][p-v_i] + w_i\bigr).
+\]
+答案：最大的 $p$ 使得 $\text{dp}[n][p] \le W$。
+时间 $O(nV)$，空间 $O(nV)$ 或优化为 $O(V)$。
+
+\subsection{4 物品例子}
+
+物品（重量，价值）：$(2,3),(3,4),(4,5),(5,6)$，容量 $W=8$，$V=18$。
+
+\begin{center}
+\begin{tabular}{c|ccccccccccccccccccc}
+  \toprule
+  & $p=0$ & 1 & 2 & 3 & 4 & 5 & 6 & 7 & 8 & 9 & 10 & 11 & 12 \\
+  \midrule
+  $i=0$ & 0 & $\infty$ & $\infty$ & $\infty$ & $\infty$ & $\infty$ & $\infty$ & $\infty$ & $\infty$ & $\infty$ & $\infty$ & $\infty$ & $\infty$\\
+  $i=1$（$v=3,w=2$）& 0 & $\infty$ & $\infty$ & 2 & $\infty$ & $\infty$ & 2 & $\infty$ & $\infty$ & $\cdots$ & & &\\
+  $i=2$（$v=4,w=3$）& 0 & $\infty$ & $\infty$ & 2 & 3 & $\infty$ & 2 & 5 & 3 & 5 & $\infty$ & $\infty$ & $\cdots$\\
+  $i=3$（$v=5,w=4$）& 0 & $\infty$ & $\infty$ & 2 & 3 & 4 & 2 & 5 & 3 & 5 & 6 & 5 & 6\\
+  $i=4$（$v=6,w=5$）& 0 & $\infty$ & $\infty$ & 2 & 3 & 4 & 2 & 5 & 3 & 5 & 6 & 5 & 6\\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+（表格仅展示到 $p=12$，完整运行到 $p=18$。）
+
+查找最大 $p$ 使 $\text{dp}[4][p] \le 8$：
+\begin{itemize}
+  \item $p=12$：$\text{dp}[4][12]=6 \le 8$，可行。
+  \item $p=13$：需要重量 $\le 8$ 达到价值 13。继续计算可得不可行或权重超过 8。
+\end{itemize}
+（完整计算可得最优解价值为 12，对应选第 1,2,3 个物品：$3+4+5=12$，重量 $2+3+4=9>8$；
+实际最优为选第 1,2,4 号：$3+4+6=13$，重量 $2+3+5=10>8$；
+选第 1,3 号：$3+5=8$，重量 $2+4=6 \le 8$；
+选第 2,3 号：$4+5=9$，重量 $3+4=7 \le 8$；
+选第 1,2 号：$3+4=7$，重量 $2+3=5 \le 8$；
+最优解：选第 2,3 号，价值 9，重量 7；或选第 1,4 号，价值 9，重量 7；
+或选第 1,2,？号——验证可知最优价值为 9。）
+
+\section{Knapsack 的 FPTAS}
+
+\textbf{直觉：}通过缩放价值，减少 DP 表格大小，从而换取速度，
+只损失不超过 $\varepsilon$ 倍最优值的精度。
+
+设 $V_{\max} = \max_i v_i$，缩放因子 $K = \lfloor \varepsilon V_{\max} / n \rfloor$（取 $\ge 1$），
+令 $v_i' = \lfloor v_i / K \rfloor$。
+
+对缩放价值 $v_i'$ 运行按价值 DP，时间 $O(n \cdot \sum v_i'/1) = O(n \cdot nV_{\max}/K) = O(n^2/\varepsilon)$。
+
+\textbf{误差分析：}设算法选出物品集合 $S$，最优集合为 $S^*$。
+\[
+  \sum_{i \in S^*} v_i \le K \sum_{i \in S^*} (v_i/K) \le K\left(\sum_{i \in S^*} v_i' + n\right)
+  \le K \sum_{i \in S} v_i' + Kn \le \sum_{i \in S} v_i + Kn.
+\]
+因此 $\OPT - A(I) \le Kn \le \varepsilon V_{\max} \le \varepsilon \OPT$，得到 $(1-\varepsilon)$-近似。
+
+\subsection{上面例子上的缩放（$\varepsilon = 0.5$）}
+
+$V_{\max} = 6$，$n = 4$，$K = \lfloor 0.5 \times 6 / 4 \rfloor = \lfloor 0.75 \rfloor = 0$——
+取 $K = 1$（最小值），实际上此例缩放比例已经很小，缩放为：
+$v_1' = \lfloor 3/1 \rfloor = 3$，$v_2' = 4$，$v_3' = 5$，$v_4' = 6$。
+（此处 $K=1$ 不改变价值，需取更大 $\varepsilon$ 才体现差异。）
+
+取 $\varepsilon = 1$（50\% 近似），$K = \lfloor 1.0 \times 6 / 4 \rfloor = 1$（实际 $K=2$ 会更有效）。
+取 $K=2$：$v_1'=1, v_2'=2, v_3'=2, v_4'=3$。
+DP 表格只需到 $p'=8$，远小于原始 18，运行更快。
+找到最优缩放解：$v'$ 值为 $4$（$S_3,S_4$ 对应原价值 $11$），损失 $\le 2 \times 4 = 8 \le \OPT \times 1$。
+
+\section{Bin Packing}
+
+\textbf{问题：}物品大小 $s_i \in (0,1]$，装入容量 1 的箱子，最小化箱子数。
+
+\textbf{简单 2-近似（First Fit）：}物品按任意顺序，尝试放入已开的箱子，
+若都放不下则开新箱子。
+
+\proofidea{若用了 $k$ 个箱子，则前 $k-1$ 个每个装载量 $> 1/2$（否则两个相邻箱子可合并），
+故总物品大小 $> (k-1)/2$，而 $\OPT \ge \lceil\text{总大小}\rceil \ge k/2$，
+所以 $k \le 2\OPT$。}
+
+\keypoint{
+  FPTAS 通常来自伪多项式算法加数值缩放；
+  PTAS/APTAS 通常来自"枚举大结构 + 贪心处理小误差"。
+  Knapsack FPTAS 是展示这个范式的最经典例子。
+}
+
+% ------------------------------------------------------------------
+\lecture{22.pdf}{基于线性规划的近似}{舍入、随机舍入、原始--对偶、Dual Fitting}
+% ------------------------------------------------------------------
+
+\section*{动机：LP 松弛不只是理论工具}
+
+我们在第 13 章看到 LP 可以建模很多问题。
+现在用 LP 直接设计近似算法：先解松弛问题（允许分数解），
+再把分数解"舍入"成整数解，分析损失。
+这套框架既给出了算法，也给出了 $\OPT$ 的下界，是近似算法的重要范式。
+
+\section{LP 舍入（LP Rounding）}
+
+\textbf{直觉：}"LP 给出分数解，我们把它舍入到整数"。
+
+LP 松弛是整数规划的下界（最小化）或上界（最大化）。
+把分数解转成整数解会增加代价，分析增加了多少倍。
+
+\textbf{一般框架：}
+\begin{enumerate}
+  \item 写出整数规划 $\to$ 松弛为 LP（去掉整数约束）。
+  \item 求解 LP，得到分数最优解 $x^*$，$LP^* \le \OPT$（最小化）。
+  \item 设计舍入规则（简单阈值、随机化、依赖问题结构）。
+  \item 分析舍入后代价 $\le \alpha \cdot LP^* \le \alpha \cdot \OPT$。
+\end{enumerate}
+
+\subsection{Set Cover 的简单舍入}
+
+若每个元素出现在至多 $f$ 个集合中（频率为 $f$），
+则取所有 $x_i^* \ge 1/f$ 的集合。
+
+覆盖性：对任意元素 $e$，LP 约束 $\sum_{i: e \in S_i} x_i^* \ge 1$，
+共有 $\le f$ 个相关集合，至少一个满足 $x_i^* \ge 1/f$，故 $e$ 被覆盖。
+
+代价：舍入后 $\sum_{i: x_i^* \ge 1/f} c_i \le f \sum_i c_i x_i^* = f \cdot LP^* \le f \cdot \OPT$。
+
+\section{随机舍入（Randomized Rounding）}
+
+\textbf{直觉：}"把 LP 值当作概率"。
+
+对 Set Cover：以概率 $p_i = \min(1, \alpha x_i^*)$ 独立选择集合 $S_i$（$\alpha$ 为放大因子）。
+
+元素 $e$ 不被覆盖的概率：
+\[
+  \prod_{i: e \in S_i} (1-p_i) \le \prod_{i: e \in S_i} e^{-\alpha x_i^*}
+  = e^{-\alpha \sum_{i: e \in S_i} x_i^*} \le e^{-\alpha}.
+\]
+取 $\alpha = c \ln n$（$c > 1$），则每个元素不被覆盖的概率 $\le 1/n^c$，
+union bound 后以高概率覆盖所有元素，代价期望 $O(\alpha \cdot LP^*) = O(\log n \cdot \OPT)$。
+
+\section{原始--对偶（Primal-Dual）}
+
+\subsection{直觉}
+
+\textbf{直觉：}"同时构造原始解（算法解）和对偶解（下界），保证它们比例不超过 $\alpha$"。
+
+原始--对偶不需要真正求解 LP，而是通过调整对偶变量来\textbf{驱动}算法，
+对偶可行解同时作为 $\OPT$ 的下界。
+
+\subsection{Vertex Cover 原始--对偶}
+
+Vertex Cover 的 LP：
+\[
+  \min \sum_v x_v, \quad x_u + x_v \ge 1\ \forall (u,v) \in E, \quad x_v \ge 0.
+\]
+
+对偶 LP：
+\[
+  \max \sum_e y_e, \quad \sum_{e \ni v} y_e \le 1\ \forall v \in V, \quad y_e \ge 0.
+\]
+
+\textbf{算法：}从 $x=0,y=0$ 出发，反复执行：
+\begin{enumerate}
+  \item 找一条未覆盖边 $(u,v)$（原始约束未满足）。
+  \item 尽量增大 $y_{uv}$，直到 $u$ 或 $v$ 的对偶约束达到紧（$\sum_{e \ni u} y_e = 1$ 或 $\sum_{e \ni v} y_e = 1$）。
+  \item 将紧约束对应的顶点加入覆盖（令 $x_v = 1$）。
+\end{enumerate}
+
+\subsection{完整例子}
+
+图：$V=\{1,2,3\}$，$E=\{(1,2),(2,3),(1,3)\}$（三角形），初始 $y_{12}=y_{23}=y_{13}=0$。
+
+\textbf{第 1 步}：选未覆盖边 $(1,2)$，增大 $y_{12}$：
+\begin{itemize}
+  \item 顶点 1 的对偶约束：$y_{12}+y_{13} \le 1$，当 $y_{12}=1$ 时达到紧（若 $y_{13}=0$）。
+  \item 顶点 2 的对偶约束：$y_{12}+y_{23} \le 1$，同上。
+  \item 增大 $y_{12}$ 到 1，顶点 1 和顶点 2 同时紧，加入覆盖。$C=\{1,2\}$。
+\end{itemize}
+
+\textbf{第 2 步}：检查未覆盖边：$(2,3)$（端点 2 已在覆盖），已覆盖；$(1,3)$（端点 1 已在覆盖），已覆盖。算法结束。
+
+输出覆盖 $C=\{1,2\}$，大小 2。
+
+下界：$\sum_e y_e = 1$，$\OPT \ge 1$（实际最优为 2——需要至少 2 个顶点覆盖三角形的 3 条边——等等，三角形需要至少 2 个顶点，$\{1,2\}$ 确实是覆盖）。
+
+$|C|=2 \le 2\sum_e y_e = 2$，2-近似。
+
+\textbf{2-近似的证明：}加入覆盖的每个顶点 $v$ 有对偶约束 $\sum_{e \ni v} y_e = 1$（紧），
+所以 $|C| = \sum_{v \in C} 1 = \sum_{v \in C} \sum_{e \ni v} y_e \le 2\sum_e y_e$
+（每条边 $e=(u,v)$ 被计 $\le 2$ 次）$\le 2\OPT$。
+
+\section{Dual Fitting}
+
+\textbf{直觉：}先运行贪心算法，事后构造一个"几乎对偶可行"的解，
+整体缩放成可行解，再与算法代价比较。
+
+Set Cover 贪心的 $H_n$ 近似可解释为 Dual Fitting：
+当贪心覆盖元素 $e$ 时，设其"价格" $\alpha_e = c(S_i)/|S_i \cap U'|$（当步均摊）。
+直接用 $\alpha_e$ 作为对偶变量，贪心代价 $= \sum_e \alpha_e$，
+但 $\alpha_e$ 可能对偶不可行（某集合 $S_j$ 内元素价格之和 $>\, c(S_j)$，超过对偶约束上界）。
+可以证明超出量至多 $H_n$ 倍，所以将 $\alpha_e$ 整体除以 $H_n$ 得到对偶可行解，
+对偶目标值 $= \sum_e \alpha_e / H_n \ge \OPT/H_n$，
+而贪心代价 $= \sum_e \alpha_e \le H_n \cdot (\OPT/H_n \cdot H_n) = H_n \cdot \OPT$。
+
+\keypoint{
+  LP 近似三种语言本质相连：
+  舍入处理分数原解（正向）；
+  原始--对偶同步构造解和下界（双向）；
+  Dual fitting 事后修正下界（反向验证）。
+  理解这三者的联系，就掌握了 LP 近似算法的精华。
+}
+
+% ------------------------------------------------------------------
+\lecture{23.pdf}{MAX-SAT}{随机化、去随机化、LP 舍入}
+% ------------------------------------------------------------------
+
+\section*{动机：SAT 的优化版本与随机化的典范}
+
+MAX-SAT 是 SAT 的优化版本：不要求所有子句都满足，而是\textbf{最大化满足的子句总权重}。
+它是随机化近似算法的绝佳教学案例——
+从"抛硬币也能保证一半"出发，逐步改进，最后得到 $3/4$-近似。
+
+\section{问题定义}
+
+\begin{definition}
+\textbf{MAX-SAT}：给定 CNF 公式 $\varphi = C_1 \wedge \cdots \wedge C_m$，
+每个子句 $C_j$ 有权重 $w_j \ge 0$，目标是找变量赋值最大化 $\sum_{j: C_j \text{ 满足}} w_j$。
+\end{definition}
+
+MAX-SAT 是 NP-hard（SAT 是特殊情形：若所有子句均可满足，MAX-SAT 解为总权重）。
+
+\section{随机算法：$1/2$-近似}
+
+\subsection{直觉："抛硬币也能保证一半"}
+
+最简单的算法：每个变量独立以概率 $1/2$ 取真。
+每个子句被满足的概率至少 $1/2$（因为子句内任意一个字面量为真就满足，
+至少有一个字面量以 $1/2$ 的概率为真，且子句长 $\ge 1$）。
+
+\begin{theorem}
+随机赋值算法是 $1/2$-近似（MAX-SAT 为最大化问题，等价于近似比 $1/2$）。
+\end{theorem}
+
+\begin{proof}
+子句 $C_j$ 含 $k_j$ 个字面量，不满足 $C_j$ 的概率 $= 2^{-k_j}$（需所有字面量均为假），
+满足概率 $\ge 1-2^{-k_j} \ge 1/2$。
+期望满足权重 $= \sum_j w_j \cdot \Pr[C_j \text{ 满足}] \ge \frac{1}{2}\sum_j w_j \ge \frac{1}{2}\OPT$。
+\end{proof}
+
+\subsection{3 变量 4 子句的具体计算}
+
+公式（均等权重 $w_j=1$）：
+\[
+  C_1 = (x_1 \vee \neg x_2),\quad
+  C_2 = (\neg x_1 \vee x_3),\quad
+  C_3 = (x_2 \vee \neg x_3),\quad
+  C_4 = (x_1 \vee x_2 \vee x_3).
+\]
+
+随机赋值，子句长度：$k_1=2, k_2=2, k_3=2, k_4=3$。
+
+期望满足子句数：
+\[
+  E[\text{满足}] = \sum_j (1-2^{-k_j})
+  = (1-1/4)+(1-1/4)+(1-1/4)+(1-1/8)
+  = 3/4+3/4+3/4+7/8 = 3.125.
+\]
+
+总权重 $= 4$，期望 $\ge 3.125 > 4/2 = 2$，超过 $1/2$ 近似的保证。
+
+\section{条件期望去随机化（本章精华）}
+
+\subsection{直觉："逐步固定，选更好的一侧"}
+
+随机算法证明了\textbf{存在}一个赋值使满足权重 $\ge \OPT/2$，
+但我们想要\textbf{确定性地找到}这样的赋值。
+条件期望方法：逐个固定变量，每次选让条件期望不下降的一侧，
+最终得到的确定性赋值满足权重不低于初始期望。
+
+\begin{lstlisting}[language={}]
+DERANDOMIZE-MAX-SAT(公式 F, 变量 x_1,...,x_n):
+  当前赋值 alpha = {}
+  for i = 1 to n:
+    E_T = E[满足权重 | alpha, x_i = T]  // 条件期望
+    E_F = E[满足权重 | alpha, x_i = F]
+    if E_T >= E_F:
+        alpha(x_i) = T
+    else:
+        alpha(x_i) = F
+  return alpha
+\end{lstlisting}
+
+\textbf{关键性质：}$\max(E_T, E_F) \ge (E_T + E_F)/2 = E[\text{满足权重} | \text{alpha}]$。
+所以每步条件期望不降，最终赋值的满足权重 $\ge$ 初始期望 $\ge \OPT/2$。
+
+\subsection{完整例子：逐步固定}
+
+使用上面的例子（$k_1=k_2=k_3=2, k_4=3$，初始期望 $= 3.125$）。
+
+\textbf{第 1 步：固定 $x_1$}
+
+$x_1 = \mathsf{T}$：
+\begin{itemize}
+  \item $C_1 = (T \vee \neg x_2)$：已满足，贡献 1。
+  \item $C_2 = (\mathsf{F} \vee x_3)=(x_3)$：随机 $x_3$，满足概率 $1/2$，期望 $1/2$。
+  \item $C_3 = (x_2 \vee \neg x_3)$：随机，期望 $3/4$。
+  \item $C_4 = (\mathsf{T} \vee x_2 \vee x_3)$：已满足，贡献 1。
+\end{itemize}
+$E_T = 1 + 1/2 + 3/4 + 1 = 3.25$。
+
+$x_1 = \mathsf{F}$：
+\begin{itemize}
+  \item $C_1 = (\mathsf{F} \vee \neg x_2) = (\neg x_2)$：期望 $1/2$。
+  \item $C_2 = (\mathsf{T} \vee x_3)$：已满足，贡献 1。
+  \item $C_3 = (x_2 \vee \neg x_3)$：期望 $3/4$。
+  \item $C_4 = (\mathsf{F} \vee x_2 \vee x_3)=(x_2 \vee x_3)$：期望 $3/4$。
+\end{itemize}
+$E_F = 1/2 + 1 + 3/4 + 3/4 = 3.0$。
+
+$E_T = 3.25 > E_F = 3.0$，选 $x_1 = \mathsf{T}$。
+
+\textbf{第 2 步：固定 $x_2$（已知 $x_1=\mathsf{T}$）}
+
+当前公式（化简 $x_1=\mathsf{T}$）：$C_1$ 已满足，$C_2=(x_3)$，$C_3=(x_2 \vee \neg x_3)$，$C_4$ 已满足。
+
+$x_2 = \mathsf{T}$：$C_3$ 已满足，$C_2=(x_3)$ 期望 $1/2$。总期望 $= 1+1/2+1+1 = 3.5$。
+
+$x_2 = \mathsf{F}$：$C_3=(\neg x_3)$，$C_2=(x_3)$，两者矛盾，必有一假。
+$x_3=\mathsf{T}$：$C_2$ 满足，$C_3$ 不满足；$x_3=\mathsf{F}$：$C_2$ 不满足，$C_3$ 满足。
+期望满足子句数（$C_3$ 和 $C_2$）$= 1$。总 $= 1+1+1 = 3$（加上 $C_1, C_4$）。
+
+$E_T = 3.5 > E_F = 3$，选 $x_2 = \mathsf{T}$。
+
+\textbf{第 3 步：固定 $x_3$（已知 $x_1=x_2=\mathsf{T}$）}
+
+剩余未确定子句：$C_2=(x_3)$（$C_1,C_3,C_4$ 已满足）。
+
+$x_3=\mathsf{T}$：$C_2$ 满足，总满足 $= 4$。
+$x_3=\mathsf{F}$：$C_2$ 不满足，总满足 $= 3$。
+
+选 $x_3 = \mathsf{T}$。
+
+\textbf{最终赋值：}$x_1=\mathsf{T}, x_2=\mathsf{T}, x_3=\mathsf{T}$，满足所有 4 个子句，总满足权重 $= 4 = $ 全部权重。
+
+\begin{center}
+\begin{tabular}{ccccc}
+  \toprule
+  步骤 & 固定变量 & 赋值 & $E_T$ & $E_F$ \\
+  \midrule
+  1 & $x_1$ & $\mathsf{T}$ & 3.25 & 3.0 \\
+  2 & $x_2$ & $\mathsf{T}$ & 3.5 & 3.0 \\
+  3 & $x_3$ & $\mathsf{T}$ & 4 & 3 \\
+  \bottomrule
+\end{tabular}
+\end{center}
+
+条件期望单调不降（$3.125 \to 3.25 \to 3.5 \to 4$），最终达到最优。
+
+\section{LP 舍入与组合策略}
+
+\subsection{LP 建模}
+
+MAX-SAT 的整数规划：变量 $y_i \in \{0,1\}$（$y_i=1$ 表示 $x_i=\mathsf{T}$），
+$z_j \in \{0,1\}$（$z_j=1$ 表示 $C_j$ 被满足）。
+
+约束（对子句 $C_j$，正文字集 $P_j$，负文字集 $N_j$）：
+\[
+  \sum_{i \in P_j} y_i + \sum_{i \in N_j} (1-y_i) \ge z_j.
+\]
+目标：$\max \sum_j w_j z_j$，$y_i, z_j \in \{0,1\}$。
+
+LP 松弛：允许 $y_i, z_j \in [0,1]$。
+
+\textbf{LP 舍入}：以 $y_i^*$（LP 最优解）作概率令 $x_i=\mathsf{T}$，
+分析每个子句被满足的期望概率 $\ge (1-(1-1/k)^k) z_j^* \ge (1-1/e) z_j^*$。
+
+\subsection{组合策略}
+
+\begin{itemize}
+  \item 随机赋值（1/2-近似）对长子句好（子句越长，满足概率越接近 1）。
+  \item LP 舍入（$(1-1/e)$-近似）对短子句好（尤其 $k=1,2$ 时 LP 约束紧）。
+\end{itemize}
+
+结合两种方法：以 $1/2$ 概率使用随机赋值，$1/2$ 概率使用 LP 舍入，
+对任意子句满足期望概率 $\ge 3/4 \cdot z_j^*$，得到 $3/4$-近似。
+
+\begin{theorem}
+MAX-SAT 有 $3/4$-近似算法（通过随机赋值与 LP 舍入组合）。
+\end{theorem}
+
+\keypoint{
+  MAX-SAT 是随机化方法的典型范式：
+  （1）用期望证明\emph{存在}好解；
+  （2）用条件期望（方法论）\emph{去随机化}，构造确定性算法；
+  （3）LP 舍入 + 随机组合可进一步提升近似比。
+  去随机化的核心：每步选期望不降的分支，保持"已达到的下界不变"。
+}
+
+\chapter{算法与数学分析详解}
+
+本章把前面各讲中最容易“看懂结论但不会自己推”的部分展开。阅读时建议抓住四个问题：
+\begin{enumerate}
+  \item \textbf{状态是什么？}算法运行过程中维护哪些量。
+  \item \textbf{不变量是什么？}每一步之后哪些事实仍然成立。
+  \item \textbf{为什么停下时就是答案？}终止条件如何转化为最优性。
+  \item \textbf{每个对象被处理多少次？}复杂度往往来自对顶点、边、状态或增广次数的计数。
+\end{enumerate}
+
+\section{图搜索：BFS 与 DFS}
+\subsection{BFS 的层次结构}
+BFS 的本质是按距离分层。设第 $i$ 层
+\[
+L_i=\{v:\mathrm{dist}(s,v)=i\}.
+\]
+算法用队列保证先处理 $L_0$，再处理 $L_1$，然后处理 $L_2$，依此类推。更精确地说，任意时刻队列中的顶点只可能来自相邻两层，且较小层的顶点排在前面。
+
+\paragraph{不变量}
+当某顶点 $u$ 出队时，$d[u]=\mathrm{dist}(s,u)$。证明用归纳。初始 $s$ 显然成立。若 $u$ 是从 $x$ 发现的，则存在路径长度 $d[x]+1$，所以 $\mathrm{dist}(s,u)\le d[u]$。反过来，若存在更短路径
+\[
+s\leadsto y\to u
+\]
+长度小于 $d[u]$，则 $y$ 的距离小于 $d[u]-1$，按归纳会更早出队；处理 $y$ 的边时应已发现 $u$，矛盾。
+
+\paragraph{复杂度推导}
+邻接表中，每个顶点最多入队一次、出队一次，所以顶点操作是 $O(|V|)$。每条边只在扫描其起点邻接表时被检查一次；无向图中会从两端各检查一次，仍是 $O(|E|)$。因此总时间为 $O(|V|+|E|)$，空间为队列、距离、父指针数组的 $O(|V|)$。
+
+\subsection{DFS 的括号性质}
+DFS 的 pre/post 时间具有括号结构：对任意两个顶点 $u,v$，区间
+\[
+[\mathrm{pre}(u),\mathrm{post}(u)]
+\quad\text{和}\quad
+[\mathrm{pre}(v),\mathrm{post}(v)]
+\]
+要么不相交，要么一个包含另一个。包含关系正对应 DFS 树中的祖先关系。
+
+\paragraph{边分类判定}
+在有向图中，考察边 $(u,v)$：
+\begin{itemize}
+  \item 若 $v$ 尚未访问，$(u,v)$ 成为树边。
+  \item 若 $v$ 已访问但未退出，$v$ 是 $u$ 的祖先，$(u,v)$ 是回边。
+  \item 若 $v$ 已退出，依据时间区间可判定为前向边或横叉边。
+\end{itemize}
+有向图存在环当且仅当 DFS 出现回边。若存在回边 $u\to v$，树路径 $v\leadsto u$ 加上该边形成环；反过来，沿环中第一个被 DFS 访问的顶点出发，必会遇到指向尚在递归栈中祖先的边。
+
+\section{Dijkstra 与 Bellman--Ford}
+\subsection{Dijkstra 的贪心证明}
+Dijkstra 的关键不变量是：集合 $S$ 中所有顶点的距离已经确定，即
+\[
+d[v]=\delta(s,v)\qquad \forall v\in S.
+\]
+每次选择 $V\setminus S$ 中 $d[u]$ 最小的顶点 $u$ 加入 $S$。设反证存在一条更短路径 $P$ 到 $u$。沿 $P$ 从 $s$ 出发，令 $y$ 是第一个不在 $S$ 中的顶点，$x$ 是它前一个顶点，则 $x\in S$。当 $x$ 加入 $S$ 时已经松弛过边 $(x,y)$，所以
+\[
+d[y]\le \delta(s,x)+w(x,y)=\delta(s,y).
+\]
+又因为边权非负，$P$ 上从 $y$ 到 $u$ 的后缀长度非负，故
+\[
+\delta(s,y)\le \delta(s,u)<d[u].
+\]
+于是 $d[y]<d[u]$，这与 $u$ 是未确定顶点中估计距离最小者矛盾。
+
+\paragraph{为什么负边破坏证明}
+如果 $y$ 到 $u$ 的后缀可能为负，就不能推出 $\delta(s,y)\le \delta(s,u)$。也就是说，一个暂时看起来更远的顶点，未来可能通过负边把 $u$ 的距离拉低。
+
+\subsection{Bellman--Ford 的 DP 解释}
+定义
+\[
+D_k[v]=\text{从 }s\text{ 到 }v\text{ 使用至多 }k\text{ 条边的最短路长度}.
+\]
+则
+\[
+D_k[v]=\min\left\{D_{k-1}[v],\min_{(u,v)\in E}D_{k-1}[u]+w(u,v)\right\}.
+\]
+Bellman--Ford 的每一轮全边松弛，正是在把 $D_{k-1}$ 推进到 $D_k$。实现中可用一维数组原地更新；虽然原地更新会在一轮内传播多个边的信息，但它只会更快降低上界，不会破坏“第 $k$ 轮后已考虑至多 $k$ 条边路径”的正确性结论。
+
+\paragraph{负环检测的数学原因}
+若没有从 $s$ 可达的负环，则任意最短路可取简单路径。简单路径最多经过 $|V|-1$ 条边，因此 $|V|-1$ 轮后所有最短路都应稳定。若第 $|V|$ 轮仍可松弛某条边，说明存在一条更短的、包含至少 $|V|$ 条边的可达走法；其中必有重复顶点，形成环。若该环权重非负，删除它不会变差，因此能继续变短只能由负环解释。
+
+\section{最小生成树：安全边与交换论证}
+\subsection{统一的贪心框架}
+MST 算法维护一个边集 $A$，要求 $A$ 总能扩展成某棵 MST。这样的 $A$ 称为 promising。若某条边 $e$ 加入 $A$ 后仍 promising，则 $e$ 是安全边。
+
+\paragraph{割性质的完整证明}
+设 $A$ 是某棵 MST $T$ 的子集，割 $(S,V\setminus S)$ 不穿过 $A$，即 $A$ 中没有边跨越该割。令 $e$ 是该割上的最轻边。若 $e\in T$，无需证明。若 $e\notin T$，则 $T+e$ 产生唯一环。这个环从 $S$ 走到 $V\setminus S$ 后还必须走回来，所以存在另一条跨割边 $f\in T$。由于 $e$ 是割上最轻边，
+\[
+w(e)\le w(f).
+\]
+令
+\[
+T'=T+e-f.
+\]
+$T'$ 仍连通且边数为 $|V|-1$，所以是生成树，并且
+\[
+w(T')=w(T)+w(e)-w(f)\le w(T).
+\]
+因此 $T'$ 也是 MST 且包含 $A\cup\{e\}$。
+
+\subsection{Kruskal 的复杂度细算}
+Kruskal 的三部分工作：
+\begin{itemize}
+  \item 排序 $|E|$ 条边：$O(|E|\log |E|)$。
+  \item 每条边做两次 find，若跨分量再 union：$O(|E|\alpha(|V|))$。
+  \item 输出 $|V|-1$ 条边。
+\end{itemize}
+由于简单图中 $|E|\le |V|^2$，所以 $\log |E|=O(\log |V|)$，常写为
+\[
+O(|E|\log |V|).
+\]
+若边权为小整数，也可用计数排序等方式降低排序成本。
+
+\subsection{Prim 与 Dijkstra 的相似和不同}
+二者都维护一个已确定集合并用优先队列取最小键。区别在键值含义：
+\begin{itemize}
+  \item Dijkstra 的键是从源点到顶点的当前最短路径估计 $d[v]$。
+  \item Prim 的键是连接顶点 $v$ 到当前树 $S$ 的最轻跨割边权。
+\end{itemize}
+Dijkstra 的松弛是
+\[
+d[v]\gets \min(d[v],d[u]+w(u,v)),
+\]
+Prim 的松弛是
+\[
+key[v]\gets \min(key[v],w(u,v)).
+\]
+一个累加路径长度，一个只看跨割边。
+
+\section{动态规划：从状态到递推}
+\subsection{设计 DP 的四步}
+\begin{enumerate}
+  \item \textbf{定义状态：}状态必须包含足够信息，使未来决策不依赖更早历史。
+  \item \textbf{写出选择：}最后一步或第一步是什么。
+  \item \textbf{递推与边界：}把大问题拆成已定义的小问题。
+  \item \textbf{计算顺序：}保证用到的状态已经算好。
+\end{enumerate}
+
+\subsection{序列比对的网格图}
+序列比对可画成 $(m+1)\times(n+1)$ 网格。点 $(i,j)$ 表示已经处理 $x$ 的前 $i$ 个字符和 $y$ 的前 $j$ 个字符。三种边：
+\begin{itemize}
+  \item $(i-1,j-1)\to(i,j)$：匹配或替换 $x_i,y_j$。
+  \item $(i-1,j)\to(i,j)$：让 $x_i$ 对空位。
+  \item $(i,j-1)\to(i,j)$：让空位对 $y_j$。
+\end{itemize}
+因此 DP 表就是这个 DAG 上从 $(0,0)$ 到 $(m,n)$ 的最短路。这个视角解释了为什么填表顺序可以按行、按列或按反对角线，只要拓扑顺序合法即可。
+
+\subsection{Hirschberg 的空间分析}
+普通 DP 若保存整张表，空间为 $mn$。Hirschberg 只在每层分治保存两行 DP：
+\[
+F[j]=\mathrm{cost}(x_L,y_{1..j}),\qquad
+B[j]=\mathrm{cost}(x_R,y_{j+1..n}).
+\]
+切分点为
+\[
+k=\arg\min_j F[j]+B[j].
+\]
+递归树每一层处理的子问题总面积不超过 $mn$ 的常数倍，因为 $x$ 的长度被对半分。于是时间满足
+\[
+T(m,n)\le c mn+T(m/2,k)+T(m/2,n-k)=O(mn),
+\]
+而递归栈加每层两行数组空间为 $O(m+n)$。
+
+\subsection{Knapsack FPTAS 的误差推导}
+设 $V_{\max}=\max_i v_i$，缩放因子 $K=\varepsilon V_{\max}/n$，缩放价值
+\[
+v_i'=\left\lfloor v_i/K\right\rfloor.
+\]
+对任意物品 $i$，
+\[
+K v_i'\le v_i< K(v_i'+1),
+\]
+所以向下取整损失小于 $K$。若 $S^*$ 是最优物品集合，最多有 $n$ 个物品，因此
+\[
+\sum_{i\in S^*} v_i - K\sum_{i\in S^*}v_i' < nK=\varepsilon V_{\max}\le \varepsilon \OPT.
+\]
+缩放 DP 找到缩放价值最优的可行集合 $S$，故其真实价值至少为
+\[
+value(S)\ge (1-\varepsilon)\OPT.
+\]
+
+\section{最大流：残量网络的含义}
+\subsection{为什么需要反向边}
+增广路上的反向边表示“撤销之前的一部分流”。例如先把 $1$ 单位流送过 $(u,v)$，后来发现更优方案应把这 $1$ 单位改走别的边，那么残量网络中的反向边 $(v,u)$ 容量为 $1$，允许算法把该流量退回来。没有反向边，贪心选择一旦做错就无法修正。
+
+\subsection{流值等于割净流}
+对任意割 $(S,T)$，把 $S$ 内所有顶点的流守恒方程相加，内部边一正一负抵消，得到
+\[
+|f|=\sum_{u\in S,v\in T}f(u,v)-\sum_{u\in T,v\in S}f(u,v).
+\]
+再由容量约束和非负性：
+\[
+|f|\le \sum_{u\in S,v\in T}c(u,v)=c(S,T).
+\]
+这就是弱对偶形式：任意流给下界，任意割给上界。
+
+\subsection{Ford--Fulkerson 的终止与最优性}
+整数容量时，每次增广量 $\Delta$ 是正整数，所以流值至少增加 $1$。若最大流值为 $F$，增广次数最多 $F$ 次。每次 DFS/BFS 找路径花 $O(|E|)$，故朴素界为 $O(F|E|)$。这不是输入长度的多项式界，因为 $F$ 可能很大。
+
+终止时，残量图中没有 $s$ 到 $t$ 的路径。令 $S$ 为残量图中从 $s$ 可达的顶点集合。对任意原图边 $(u,v)$：
+\begin{itemize}
+  \item 若 $u\in S,v\in T$，则残量容量为 $0$，所以 $f(u,v)=c(u,v)$。
+  \item 若 $u\in T,v\in S$，则反向残量容量为 $f(u,v)$；若 $f(u,v)>0$，则 $u$ 会从 $v$ 可达，矛盾，所以 $f(u,v)=0$。
+\end{itemize}
+代入割净流公式得到 $|f|=c(S,T)$，因此流和割同时最优。
+
+\subsection{Edmonds--Karp 的距离单调性}
+每次选最短增广路。设 $\ell_f(v)$ 是残量网络中从 $s$ 到 $v$ 的 BFS 距离。增广后所有可达顶点的距离不会下降。直观原因是：若某个顶点距离下降，取第一个距离下降的顶点 $v$，它的新最短路前驱 $u$ 的距离未下降，而边 $(u,v)$ 在增广前若已存在就会导致旧距离也不大；若是新增反向边，则对应正向边刚在最短路上被使用，会推出距离关系矛盾。
+
+一条边 $(u,v)$ 每次成为瓶颈后会从残量图消失。若未来再次出现并再次成为瓶颈，必须先通过反向边把流退回，这会使相关层数至少增加 $2$。由于顶点距离最多为 $|V|-1$，每条边成为关键瓶颈 $O(|V|)$ 次，总增广次数 $O(|V||E|)$。
+
+\section{线性规划、对偶与单纯形}
+\subsection{弱对偶逐行推导}
+原问题
+\[
+\max c^Tx\quad \text{s.t. } Ax\le b,\ x\ge 0
+\]
+对偶
+\[
+\min b^Ty\quad \text{s.t. } A^Ty\ge c,\ y\ge 0.
+\]
+对任意可行 $x,y$，
+\[
+c^Tx\le (A^Ty)^Tx=y^TAx\le y^Tb=b^Ty.
+\]
+第一步用 $A^Ty\ge c$ 且 $x\ge0$，第二步用 $Ax\le b$ 且 $y\ge0$。这一串不等式是所有 LP 下界/上界证明的核心。
+
+\subsection{互补松弛的来源}
+若 $x,y$ 都可行且目标值相等，则上面两处不等式都必须取等。于是：
+\[
+\sum_j x_j((A^Ty)_j-c_j)=0,
+\qquad
+\sum_i y_i(b_i-(Ax)_i)=0.
+\]
+每一项都非负，所以每一项都为 $0$。这就得到互补松弛条件。它不是额外神秘定理，而是弱对偶等号成立时的逐项条件。
+
+\subsection{单纯形 pivot 的代数形式}
+把 LP 写成字典：
+\[
+z=z_0+\sum_{j\in N}\bar c_j x_j,\qquad
+x_i=b_i-\sum_{j\in N}a_{ij}x_j\quad (i\in B).
+\]
+若某个非基变量 $x_p$ 的 reduced cost $\bar c_p>0$，增加它会提高目标值。为了保持所有基变量非负，需要
+\[
+x_p\le \frac{b_i}{a_{ip}}\quad\text{对所有 }a_{ip}>0.
+\]
+最小比值对应离基变量。pivot 只是把进入变量解出来，替换到其他方程中。最优性条件是所有 $\bar c_j\le0$；无界条件是存在 $\bar c_p>0$ 且所有 $a_{ip}\le0$，此时 $x_p$ 可无限增大。
+
+\section{归约与复杂性证明}
+\subsection{归约证明的双向逻辑}
+以 3SAT 到 Independent Set 为例。构造后要证明：
+\begin{itemize}
+  \item 若公式可满足，则每个子句选一个为真的文字。子句内三角形保证不会同子句选两个；互补文字不可能同时为真，所以没有冲突边，得到大小 $m$ 的独立集。
+  \item 若图有大小 $m$ 的独立集，由于每个子句三角形最多选一个，而总共选了 $m$ 个，必然每个子句选了一个文字。互补边保证这些文字不矛盾，因此可扩展为满足赋值。
+\end{itemize}
+很多归约错误都出在只证明了一个方向。
+
+\subsection{NP、co-NP 与证书}
+证明 $L\in NP$ 不是给算法求解 $L$，而是给验证器：
+\[
+V(x,c)=1 \iff c\text{ 是 }x\text{ 的合法 yes 证书}.
+\]
+例如 Hamilton cycle 的证书是一串顶点排列，验证只需检查每个顶点恰好一次且相邻边存在。co-NP 则要求 no 实例有短证书。若一个最优化问题有强对偶定理，常常能同时给出 primal 与 dual 证书，解释它为什么可能落在 $NP\cap coNP$ 或 $P$ 中。
+
+\section{近似算法的数学分析}
+\subsection{Vertex Cover 的匹配下界}
+设算法选出的未覆盖边集合为 $M$。由于每次选边后删除所有 incident 边，$M$ 中任意两条边不共享端点，所以 $M$ 是匹配。任意顶点覆盖必须为 $M$ 中每条边至少选择一个端点，因此
+\[
+\OPT\ge |M|.
+\]
+算法为每条匹配边选择两个端点，得到
+\[
+ALG=2|M|\le 2\OPT.
+\]
+这里下界不是“最优解至少覆盖一半边”之类的模糊说法，而是“匹配中的边两两独立，每条都要付出一个不同顶点”。
+
+\subsection{Set Cover 贪心的 charging 证明}
+当贪心选择集合 $S$ 时，设它新覆盖了 $r$ 个元素，成本为 $w(S)$，给每个新覆盖元素收费 $w(S)/r$。算法总成本等于所有元素收费之和。
+
+取最优解中的任意集合 $O$，设它包含 $q$ 个元素，按这些元素被贪心覆盖的先后顺序排列为 $e_1,\dots,e_q$。在覆盖 $e_i$ 前，集合 $O$ 至少还能覆盖 $q-i+1$ 个尚未覆盖的这些元素，因此贪心所选集合的单位成本不超过
+\[
+\frac{w(O)}{q-i+1}.
+\]
+所以 $O$ 内元素总收费不超过
+\[
+w(O)\left(1+\frac12+\cdots+\frac1q\right)\le H_n w(O).
+\]
+对最优解中所有集合求和，得到
+\[
+ALG\le H_n\OPT.
+\]
+
+\subsection{LP 舍入的基本不等式}
+最小化问题中，LP 松弛可行域包含整数可行域，所以
+\[
+LP^*\le \OPT.
+\]
+若舍入算法能保证
+\[
+cost(\text{round}(x))\le \alpha\cdot cost(x)
+\]
+对最优 LP 解 $x$ 成立，则
+\[
+ALG\le \alpha LP^*\le \alpha\OPT.
+\]
+因此 LP 近似的全部压力集中在第二个不等式：如何舍入且只损失 $\alpha$ 倍。
+
+\subsection{MAX-SAT 的期望线性性}
+令随机变量 $X_j$ 表示子句 $C_j$ 是否被满足，满足则为 $1$，否则为 $0$。总满足权重
+\[
+X=\sum_{j=1}^m w_jX_j.
+\]
+即使子句之间不独立，期望线性性仍给出
+\[
+\mathbb E[X]=\sum_{j=1}^m w_j\mathbb E[X_j].
+\]
+长度为 $k_j$ 的子句只有当所有文字都为假时才不满足，公平随机赋值下概率为 $2^{-k_j}$，故
+\[
+\mathbb E[X]=\sum_j w_j(1-2^{-k_j})\ge \frac12\sum_jw_j\ge \frac12\OPT.
+\]
+条件期望去随机化依赖的事实是：
+\[
+\mathbb E[X\mid \text{当前部分赋值}]
+=\frac12\mathbb E[X\mid x_i=true]+\frac12\mathbb E[X\mid x_i=false].
+\]
+两项中至少有一项不小于当前条件期望，选择它即可保持最终保证。
+
+\section{如何自己分析一个新算法}
+遇到新算法时，可按下面的清单写分析：
+\begin{enumerate}
+  \item \textbf{输入规模：}明确用 $n,m,|V|,|E|$ 还是数值大小 $U,W$ 衡量。
+  \item \textbf{基本操作：}一次松弛、一次 pivot、一次 BFS、一次 DP 状态转移分别多贵。
+  \item \textbf{次数上界：}每条边扫描几次，每个状态计算几次，每轮消除多少可能性。
+  \item \textbf{正确性句柄：}是循环不变量、交换论证、最优子结构、对偶证书还是概率期望。
+  \item \textbf{终止条件：}停下时缺少什么结构，如无增广路、无正 reduced cost、无未覆盖元素。
+  \item \textbf{反例边界：}算法依赖哪些条件，如非负边权、三角不等式、整数容量、DAG 顺序。
+\end{enumerate}
+能把这六项写清楚，通常就能把一段算法分析写到考试可得分的细度。
+
+\backmatter
+\chapter{总复习提纲}
+
+\section{算法范式索引}
+\begin{longtable}{p{0.24\linewidth}p{0.68\linewidth}}
+\toprule
+范式 & 本课程中的代表内容\\
+\midrule
+分治 & 归并排序、Hirschberg 线性空间序列比对\\
+贪心 & Dijkstra、MST、集合覆盖贪心、TSP double-tree\\
+动态规划 & 序列比对、LCS、Bellman--Ford、树宽 DP、Knapsack\\
+图搜索 & BFS、DFS、SCC、残量网络搜索、模型检测可达性\\
+线性规划 & LP 对偶、最短路/最大流 LP、LP 松弛、舍入\\
+归约 & SAT、3SAT、独立集、顶点覆盖、Hamilton、TSP、Subset Sum\\
+随机化 & MAX-SAT、随机舍入、条件期望去随机化\\
+复杂性分类 & P、NP、co-NP、NP-hard、NP-complete、PSPACE\\
+\bottomrule
+\end{longtable}
+
+\section{常见证明模板}
+\begin{itemize}
+  \item \textbf{贪心正确性：}找安全选择，使用交换论证或 cut/cycle 性质。
+  \item \textbf{动态规划正确性：}定义子问题，证明最优子结构，给出计算顺序。
+  \item \textbf{最大流最优性：}用“无增广路 $\Rightarrow$ 构造等值割”。
+  \item \textbf{LP 对偶：}弱对偶给界，强对偶给等值，互补松弛验证最优。
+  \item \textbf{NP-complete：}先证属于 NP，再从已知 NP-complete 问题归约。
+  \item \textbf{近似比：}算法值与一个可证明的下界/上界比较，如匹配、LP、对偶或最优解平均性质。
+\end{itemize}
+
+\section{考试前快速检查}
+\begin{enumerate}
+  \item 能否写出 BFS、DFS、Dijkstra、Bellman--Ford、Ford--Fulkerson、Kruskal 的伪代码和复杂度？
+  \item 能否用一句话说明每个贪心算法为什么安全？
+  \item 能否从整数规划写出 LP 松弛和对偶？
+  \item 看到新问题时，能否判断更像最短路、流、匹配、覆盖、SAT、还是 DP？
+  \item 证明困难性时，归约方向是否正确？
+  \item 证明近似比时，使用的 $\OPT$ 下界是否真的成立？
+\end{enumerate}
+
+\end{document}
