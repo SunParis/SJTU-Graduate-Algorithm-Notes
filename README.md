@@ -1,6 +1,6 @@
-# SJTU Graduate Algorithm Notes
+# SJTU Graduate Algorithm Course by Prof. Li Guoqiang
 
-This repository contains a compact set of algorithm notes based on the content of an SJTU graduate-level algorithms course, together with some fast-track summary notes compiled by Codex.
+This repository contains a compact set of algorithm notes based on the content of SJTU's graduate algorithm course taught by Prof. Li Guoqiang, together with some fast-track summary notes compiled by Codex.
 
 ## Disclaimer
 
