@@ -5720,7 +5720,7 @@ Dual Fitting 的关键就是证明：
 
 所以 $y$ 就是一个真正的对偶可行解。
 
-\subsection{关键证明：任意集合的价格和最多超过 $H_n$ 倍}
+\subsection[关键证明：任意集合的价格和最多超过 Hn 倍]{关键证明：任意集合的价格和最多超过 $H_n$ 倍}
 
 现在证明最关键的一步：
 
@@ -6811,6 +6811,1349 @@ X=\sum_{j=1}^m w_jX_j.
   \item \textbf{反例边界：}算法依赖哪些条件，如非负边权、三角不等式、整数容量、DAG 顺序。
 \end{enumerate}
 能把这六项写清楚，通常就能把一段算法分析写到考试可得分的细度。
+
+\chapter{六次作业题详解}
+
+本章对应 \texttt{org/ex1.pdf} 与 \texttt{org/ex2.pdf}。这两份 PDF 是作业 1--3
+与作业 4--6 的讲义式答案，很多公式在幻灯片中只给了轮廓。本章按题目重写为可独立阅读的解答：先说明问题模型，再给算法或归约，最后给正确性、复杂度、例子或反例。
+
+\section{作业一：图论}
+
+\subsection{Dijkstra 最短路算法的正确性}
+
+\paragraph{题目}
+给定一个所有边权非负的有向图或无向图 $G=(V,E)$、边长 $w(e)\ge 0$ 和源点
+$s$，证明 Dijkstra 算法能求出从 $s$ 到所有顶点的最短路长度。
+
+\paragraph{算法}
+维护集合 $S$ 表示最短路距离已经确定的顶点，数组 $d[v]$ 表示当前已知的从 $s$ 到
+$v$ 的最短路径长度上界。
+\begin{enumerate}
+  \item 初始化 $S=\varnothing$，$d[s]=0$，其余顶点 $d[v]=+\infty$。
+  \item 每次从 $V\setminus S$ 中选取 $d[u]$ 最小的顶点 $u$，把 $u$ 加入 $S$。
+  \item 对每条从 $u$ 出发的边 $(u,v)$ 执行松弛：
+  \[
+    d[v]\gets \min\{d[v],d[u]+w(u,v)\}.
+  \]
+  \item 当没有新的可达顶点时终止。
+\end{enumerate}
+
+\paragraph{核心不变量}
+每轮循环结束后，对所有 $v\in S$ 都有
+\[
+  d[v]=\delta(s,v),
+\]
+其中 $\delta(s,v)$ 是从 $s$ 到 $v$ 的真实最短路长度。
+
+\paragraph{证明}
+用加入 $S$ 的顶点数做归纳。基础情形是第一个加入的顶点 $s$，显然
+$d[s]=0=\delta(s,s)$。
+
+归纳假设：当前 $S$ 中所有顶点距离均已正确。设下一次被选入 $S$ 的顶点是 $u$。
+反设 $d[u]>\delta(s,u)$。取一条从 $s$ 到 $u$ 的最短路 $P$。因为 $s\in S$
+而 $u\notin S$，沿 $P$ 从 $s$ 往 $u$ 走，一定存在第一条离开 $S$ 的边
+$(x,y)$，其中 $x\in S$，$y\notin S$。
+
+由归纳假设，$d[x]=\delta(s,x)$。当 $x$ 加入 $S$ 时算法已经松弛过边 $(x,y)$，
+所以
+\[
+  d[y]\le d[x]+w(x,y)=\delta(s,x)+w(x,y)=\delta(s,y).
+\]
+又因为边权非负，最短路 $P$ 上从 $y$ 到 $u$ 的后缀长度非负，因此
+\[
+  \delta(s,y)\le \delta(s,u)<d[u].
+\]
+于是 $d[y]<d[u]$。这与算法选择 $u$ 为 $V\setminus S$ 中 $d$ 值最小的顶点矛盾。
+因此 $d[u]=\delta(s,u)$，归纳成立。
+
+\paragraph{复杂度}
+若用二叉堆实现优先队列，复杂度为
+\[
+  O((|V|+|E|)\log |V|).
+\]
+若用 Fibonacci heap，则为 $O(|E|+|V|\log |V|)$。若直接扫描数组取最小值，则为
+$O(|V|^2+|E|)$。
+
+\paragraph{例子}
+设边为 $s\to a:1$，$s\to b:4$，$a\to b:2$，$a\to c:5$，$b\to c:1$。
+初始化 $d[a]=1,d[b]=4,d[c]=\infty$。先选 $a$，松弛得到 $d[b]=3,d[c]=6$；
+再选 $b$，松弛得到 $d[c]=4$；最后选 $c$。结果为
+$\delta(s,a)=1,\delta(s,b)=3,\delta(s,c)=4$。
+
+\subsection{用强连通分量求解 2SAT}
+
+\paragraph{题目}
+2SAT 中每个子句是两个文字的析取，例如 $(x\vee \neg y)$。要求判断是否存在真假赋值使所有子句都满足。
+
+\paragraph{构造蕴含图}
+对每个变量 $x_i$ 建两个顶点 $x_i$ 与 $\neg x_i$。对子句
+\[
+  (a\vee b)
+\]
+加入两条蕴含边
+\[
+  \neg a\to b,\qquad \neg b\to a.
+\]
+原因是：若 $a$ 为假，则为了满足子句必须令 $b$ 为真；若 $b$ 为假，则必须令 $a$ 为真。
+
+\paragraph{判定准则}
+公式可满足当且仅当不存在变量 $x_i$ 使 $x_i$ 与 $\neg x_i$ 位于同一个强连通分量中。
+
+\paragraph{必要性}
+若 $x_i$ 与 $\neg x_i$ 在同一个 SCC 中，则有路径 $x_i\leadsto \neg x_i$ 和
+$\neg x_i\leadsto x_i$。蕴含图中路径表示逻辑蕴含。因此若 $x_i$ 为真会推出
+$\neg x_i$ 为真，若 $\neg x_i$ 为真会推出 $x_i$ 为真。不论怎样赋值都会要求一个变量和它的否定同时为真，矛盾。
+
+\paragraph{充分性与构造赋值}
+把 SCC 缩成 DAG。按拓扑序的逆序处理 SCC。每次遇到一个尚未赋值的 SCC，就把该 SCC
+中所有文字赋为真，并把它们的否定所在 SCC 赋为假。因为一个 SCC 与其否定 SCC 不同，
+这个过程不会冲突；按逆拓扑序赋真还能保证若 $a\to b$ 且 $a$ 为真，则 $b$ 不会被迫为假。
+因此所有蕴含边都被满足，从而所有子句都被满足。
+
+\paragraph{复杂度}
+顶点数为 $2n$，边数为 $2m$。Tarjan 或 Kosaraju 求 SCC 的时间为
+\[
+  O(n+m).
+\]
+
+\paragraph{例子}
+公式
+\[
+  (x\vee y)\wedge(\neg x\vee z)\wedge(\neg y\vee \neg z)
+\]
+产生边 $\neg x\to y,\neg y\to x,x\to z,\neg z\to\neg x,y\to\neg z,z\to\neg y$。
+检查没有变量与其否定在同一个 SCC 中，所以可满足。例如取 $x=\mathsf{T}$，
+$z=\mathsf{T}$，$y=\mathsf{F}$，三个子句均满足。
+
+\subsection{使有向图强连通所需的最少新增边数}
+
+\paragraph{题目}
+给定有向图 $G$，求至少需要增加多少条有向边，才能使整个图强连通。
+
+\paragraph{算法}
+\begin{enumerate}
+  \item 求出 $G$ 的所有强连通分量。
+  \item 将每个 SCC 缩成一个超级点，得到凝聚图 $D$。凝聚图一定是 DAG。
+  \item 统计 $D$ 中入度为 $0$ 的点数 $a$，出度为 $0$ 的点数 $b$。
+  \item 若 $D$ 只有一个点，答案为 $0$；否则答案为
+  \[
+    \max\{a,b\}.
+  \]
+\end{enumerate}
+
+\paragraph{为什么至少需要 $\max\{a,b\}$ 条边}
+入度为 $0$ 的 SCC 没有任何外部 SCC 能到达它。强连通后每个这样的源 SCC 都必须至少有一条新增入边，所以新增边数至少为 $a$。同理，出度为 $0$ 的汇 SCC 必须至少有一条新增出边，所以新增边数至少为 $b$。故下界是 $\max\{a,b\}$。
+
+\paragraph{为什么 $\max\{a,b\}$ 条边足够}
+把源 SCC 记为 $S_1,\dots,S_a$，汇 SCC 记为 $T_1,\dots,T_b$。当数量不等时，循环重复较少的一侧，使两列长度都变成 $k=\max\{a,b\}$。加入边
+\[
+  T_i\to S_{i+1}\qquad (i=1,\dots,k),
+\]
+其中下标按模 $k$ 循环。DAG 中任意 SCC 都能从某个源到达，也能到达某个汇。新边把所有汇和源串成环，因此任意 SCC 可先走到某个汇，再沿新边环到某个源，再走到目标 SCC。
+
+\paragraph{例子}
+若凝聚图是三条链 $A\to B$，$C\to D$，$E$，则源为 $A,C,E$，汇为
+$B,D,E$，答案为 $3$。可加 $B\to C$、$D\to E$、$E\to A$，得到强连通。
+
+\subsection[用 O(n) 次邻接矩阵探测识别蝎子图]{用 $O(n)$ 次邻接矩阵探测识别蝎子图}
+
+\paragraph{题目}
+蝎子图是无向图，存在三个特殊顶点：sting（刺）度数为 $1$，tail（尾）度数为 $2$，
+body（身）度数为 $n-2$。刺只连尾，尾只连刺和身，身连接除刺以外所有顶点；其余顶点之间可以任意连边。要求只用 $O(n)$ 次邻接矩阵探测判断图是否为蝎子图。
+
+\paragraph{候选 body 的线性查找}
+邻接矩阵查询 $A[u,v]$ 表示 $u$ 与 $v$ 是否相邻。先用淘汰法找 body 候选：
+\begin{enumerate}
+  \item 令候选 $c=1$。
+  \item 对 $v=2,\dots,n$，查询 $A[c,v]$。
+  \item 若 $A[c,v]=0$，则 $c$ 不可能是 body（body 只不连 sting 一个点，除非 $v$ 是 sting；为了稳妥可把 $v$ 作为新候选），令 $c=v$。
+  \item 若 $A[c,v]=1$，则 $v$ 仍可能不是 body，候选保持 $c$。
+\end{enumerate}
+更标准的写法是维护候选集合，每次查询两个候选 $u,v$：若相邻，则 $v$ 不可能是 sting，但 $u$ 更可能是 body；若不相邻，则二者中至多一个可能是 body，并可淘汰不合格者。线性轮次后得到常数个候选。
+
+\paragraph{验证阶段}
+对候选 body $b$ 扫描一遍邻接矩阵第 $b$ 行，找出唯一不相邻顶点 $s$。若不相邻顶点不是唯一一个，返回 false。再令 $t$ 为 $s$ 的唯一邻居。验证：
+\[
+  \deg(s)=1,\qquad \deg(t)=2,\qquad \deg(b)=n-2,
+\]
+且 $s$ 与 $t$ 相邻，$t$ 与 $b$ 相邻，$s$ 与 $b$ 不相邻，$b$ 与除 $s$ 外所有点相邻。
+这些检查只需要扫描 $s,t,b$ 的相关行，总计 $O(n)$ 次探测。
+
+\paragraph{正确性}
+若图是蝎子图，则 body 的结构特征唯一：它是唯一一个与除 sting 外所有顶点相邻的点。
+验证阶段会接受。若算法接受，则已经显式验证了三个特殊顶点满足蝎子图定义，其他顶点之间无约束，所以图确实是蝎子图。
+
+\paragraph{例子}
+$n=5$ 时令 $s=1,t=2,b=3$。边为 $(1,2),(2,3),(3,4),(3,5)$，再任意决定
+$(4,5)$ 是否存在。此图总是蝎子图，因为普通点 $4,5$ 之间的边不影响定义。
+
+\subsection{星际贸易网络：缩点后求最小生成树}
+
+\paragraph{题目}
+有向图表示星系和单向跳跃门，边有 toll cost。一个 Trade Federation 是极大强连通分量。
+同一 federation 内旅行成本视为 $0$。现在选择若干条已有跨 federation 的跳跃门，把它们改造成双向桥，使所有 federation 之间强连通，求最小总成本。
+
+\paragraph{算法}
+\begin{enumerate}
+  \item 求原图所有 SCC，每个 SCC 缩成一个点。
+  \item 对任意两个不同 SCC $A,B$，若原图存在至少一条从 $A$ 到 $B$ 或从 $B$ 到 $A$ 的边，则在无向图 $H$ 中加入无向边 $\{A,B\}$，权重为这些跨边中的最小 toll。
+  \item 在 $H$ 上求 MST。若 $H$ 不连通，则无解；若只有一个 SCC，答案为 $0$；否则答案为 MST 权重。
+\end{enumerate}
+
+\paragraph{正确性}
+把跨 federation 的一条有向门改成双向桥后，它在 SCC 层面就是一条无向边。因此问题变成：在无向图 $H$ 中选择最小权重边集，使所有超级点连通。任意可行方案必须使 $H$ 连通，否则两个连通块之间无法互相到达。使无向图连通的最小权重边集就是最小生成树。MST 的边数为 $k-1$，其中 $k$ 是 SCC 数。
+
+\paragraph{例子}
+若 SCC 为 $A,B,C$，跨边成本为 $A\to B:5$，$B\to A:2$，$B\to C:3$，
+$A\to C:10$。则无向边权为 $AB=2,BC=3,AC=10$，MST 选 $AB$ 和 $BC$，
+答案为 $5$。
+
+\subsection{最小瓶颈生成树}
+
+\paragraph{题目}
+连通无向图 $G$ 的每条边有正权。生成树的瓶颈值是树中最大边权。证明每棵 MST 都是最小瓶颈生成树。
+
+\paragraph{证明}
+令 $T$ 是一棵 MST，设 $e$ 是 $T$ 中权重最大的边。删除 $e$ 后，$T$ 被分成两个连通分量，形成割 $(S,V\setminus S)$。因为 $T$ 是 MST，由割性质，$e$ 必须是该割上的某条最轻边；若存在跨割边 $f$ 满足 $w(f)<w(e)$，则 $T-e+f$ 是更轻生成树，矛盾。
+
+任意生成树 $T'$ 都必须至少包含一条跨越该割的边 $g$，否则不能连通两侧。由 $e$ 是该割最轻边可得
+\[
+  w(g)\ge w(e).
+\]
+因此任意生成树的最大边权至少为 $w(e)$。而 $T$ 的最大边权正是 $w(e)$，所以
+$T$ 达到最小可能瓶颈值。
+
+\paragraph{注意}
+命题只有一个方向：每棵 MST 都是 MBST，但 MBST 不一定是 MST。例如三角形边权
+$1,2,2$，任意包含两条边权不超过 $2$ 的生成树都是 MBST；但选两条权重为 $2$ 的树权重总和为
+$4$，不是 MST。
+
+\section{作业二：动态规划}
+
+\subsection{鸡蛋掉落问题}
+
+\paragraph{题目}
+给定 $k$ 个相同鸡蛋和 $n$ 层楼。存在阈值
+$\ell\in\{0,1,\dots,n\}$：从 $\ell$ 层或以下扔不会碎，从 $\ell+1$ 层或以上扔会碎。
+鸡蛋碎后不能再用，没碎可重复使用。求在最坏情况下确定 $\ell$ 所需的最少投掷次数
+$f(n,k)$。
+
+\paragraph{直接 DP}
+若第一次在第 $x$ 层投掷：
+\begin{itemize}
+  \item 若碎了，则阈值在 $0,\dots,x-1$ 中，还剩 $k-1$ 个鸡蛋，子问题为 $f(x-1,k-1)$。
+  \item 若没碎，则阈值在 $x,\dots,n$ 中，还剩 $k$ 个鸡蛋，子问题等价于 $f(n-x,k)$。
+\end{itemize}
+由于要保证最坏情况，取两种结果的最大值；由于可以选择最优楼层 $x$，取最小值：
+\[
+  f(n,k)=1+\min_{1\le x\le n}\max\{f(x-1,k-1),f(n-x,k)\}.
+\]
+边界为
+\[
+  f(0,k)=0,\qquad f(n,0)=+\infty\ (n>0),\qquad f(n,1)=n.
+\]
+
+\paragraph{复杂度}
+直接计算所有 $n k$ 个状态，每个状态枚举 $x$，时间 $O(kn^2)$，空间 $O(kn)$。
+因为 $f(x-1,k-1)$ 随 $x$ 单调增加而 $f(n-x,k)$ 单调减少，可用二分优化每个状态，
+但作业中的基本递推已经足够。
+
+\paragraph{例子}
+$n=2,k=2$。若先扔第 $1$ 层，碎了确定 $\ell=0$，没碎还要试第 $2$ 层；
+最坏 $2$ 次。若先扔第 $2$ 层，碎了还要区分 $\ell=0$ 或 $1$，也最坏 $2$ 次。
+所以 $f(2,2)=2$。
+
+\subsection{最少删除字符使字符串成为回文}
+
+\paragraph{题目}
+给定字符串 $s$，每次可删除一个字符，求最少删除多少字符可使剩余字符串成为回文。
+
+\paragraph{转化为最长回文子序列}
+删除一些字符后保留下来的字符顺序不变，因此最终得到的是 $s$ 的一个回文子序列。
+若最长回文子序列长度为 $L$，则保留这 $L$ 个字符、删除其他 $n-L$ 个字符即可。
+任何方案若删除 $d$ 个字符，就保留长度 $n-d$ 的回文子序列，所以 $n-d\le L$。
+因此最少删除数为
+\[
+  n-L.
+\]
+
+\paragraph{DP}
+令 $dp[i][j]$ 为子串 $s_i s_{i+1}\cdots s_j$ 的最长回文子序列长度。
+边界：
+\[
+  dp[i][i]=1,\qquad dp[i][j]=0\quad(i>j).
+\]
+递推：
+\[
+dp[i][j]=
+\begin{cases}
+  dp[i+1][j-1]+2, & s_i=s_j,\\
+  \max\{dp[i+1][j],dp[i][j-1]\}, & s_i\ne s_j.
+\end{cases}
+\]
+按区间长度从小到大填表，答案为 $n-dp[1][n]$。
+
+\paragraph{复杂度}
+状态数 $O(n^2)$，每个状态 $O(1)$，时间 $O(n^2)$，空间 $O(n^2)$。可用滚动数组降为
+$O(n)$ 空间。
+
+\paragraph{例子}
+$s=\texttt{bbbab}$，最长回文子序列为 \texttt{bbbb}，长度 $4$，所以最少删除
+$5-4=1$ 个字符。
+
+\subsection{掷骰子求和方案数}
+
+\paragraph{题目}
+有 $n$ 个骰子，每个骰子有 $m$ 个面，面值为 $1,\dots,m$。求掷出总和为 $X$ 的方案数。
+
+\paragraph{DP}
+令 $dp[i][s]$ 表示使用恰好 $i$ 个骰子得到总和 $s$ 的方案数。
+边界：
+\[
+  dp[0][0]=1,\qquad dp[0][s]=0\ (s>0).
+\]
+递推：
+\[
+  dp[i][s]=\sum_{r=1}^{m} dp[i-1][s-r],
+\]
+其中当 $s-r<0$ 时对应项视为 $0$。
+
+\paragraph{复杂度}
+直接实现有 $O(nX)$ 个状态，每个状态枚举 $m$ 个点数，时间 $O(nXm)$，空间
+$O(nX)$ 或滚动为 $O(X)$。若用前缀和，可把转移优化到 $O(nX)$。
+
+\paragraph{例子}
+两个六面骰得到和 $7$ 的方案为
+\[
+  (1,6),(2,5),(3,4),(4,3),(5,2),(6,1),
+\]
+共 $6$ 种。DP 中
+\[
+  dp[2][7]=\sum_{r=1}^{6}dp[1][7-r]=1+1+1+1+1+1=6.
+\]
+
+\subsection{三划分的伪多项式 DP}
+
+\paragraph{题目}
+给定正整数 $a_1,\dots,a_n$，判断能否把它们划分为三个不相交子集，使三个子集的和相等。要求算法关于 $n$ 和总和 $W=\sum_i a_i$ 为多项式。
+
+\paragraph{预处理}
+若 $W$ 不能被 $3$ 整除，直接返回 false。否则令目标和
+\[
+  B=W/3.
+\]
+只需要判断能否选出两个不相交子集分别达到和 $B$，剩余元素自动和为 $B$。
+
+\paragraph{DP}
+令
+\[
+  dp[i][p][q]
+\]
+表示只考虑前 $i$ 个数时，能否让第一个桶和为 $p$、第二个桶和为 $q$。第三个桶不需要记录。
+边界 $dp[0][0][0]=\mathsf{true}$，其余为 false。处理 $a_i$ 时有三种选择：
+\[
+dp[i][p][q]=
+dp[i-1][p][q]
+\vee
+\bigl(p\ge a_i\wedge dp[i-1][p-a_i][q]\bigr)
+\vee
+\bigl(q\ge a_i\wedge dp[i-1][p][q-a_i]\bigr).
+\]
+最终返回 $dp[n][B][B]$。
+
+\paragraph{复杂度}
+状态数为 $O(nB^2)$，每个状态常数转移，所以时间 $O(nB^2)$，空间 $O(B^2)$ 可滚动。
+由于 $B\le W$，这是关于 $n,W$ 的多项式，即伪多项式算法。
+
+\paragraph{例子}
+$[2,2,2,3,3,3]$ 的总和为 $15$，不能被 $3$ 整除，直接 false。
+$[2,2,2,3,3,3,3]$ 总和为 $18$，$B=6$，可分为
+$\{3,3\}$、$\{2,2,2\}$、$\{3,3\}$。
+
+\subsection[无限硬币、至多 k 枚凑出金额]{无限硬币、至多 $k$ 枚凑出金额}
+
+\paragraph{题目}
+给定硬币面值 $d_1,\dots,d_m$，每种硬币数量无限。判断能否用至多 $k$ 枚硬币凑出金额
+$V$。
+
+\paragraph{最少硬币数 DP}
+令 $dp[x]$ 为凑出金额 $x$ 所需的最少硬币数。初始化
+\[
+  dp[0]=0,\qquad dp[x]=+\infty\ (x>0).
+\]
+对 $x=1,\dots,V$：
+\[
+  dp[x]=1+\min_{d_i\le x}dp[x-d_i].
+\]
+最后判断 $dp[V]\le k$。
+
+\paragraph{为什么可以这样递推}
+任何凑出 $x$ 的非空方案都有最后一枚硬币，设其面值为 $d_i$，那么其余硬币凑出
+$x-d_i$。最优方案的其余部分也必须是 $x-d_i$ 的最优方案，否则可替换得更少硬币。
+
+\paragraph{复杂度}
+状态 $V+1$ 个，每个状态枚举 $m$ 种硬币，时间 $O(mV)$，空间 $O(V)$。
+
+\paragraph{例子}
+面值 $\{1,3,4\}$，金额 $6$。$dp[6]=2$，因为 $3+3$。若 $k=2$ 返回 true；
+若金额 $2$ 且面值 $\{3,4\}$，则 $dp[2]=+\infty$，返回 false。
+
+\subsection{等和子集划分}
+
+\paragraph{题目}
+给定只含正整数的数组，判断能否划分为两个子集，使两个子集和相等。
+
+\paragraph{DP}
+令总和为 $W$。若 $W$ 为奇数，直接 false。否则目标为 $B=W/2$。问题变为是否存在子集和为 $B$。
+
+令 $dp[i][s]$ 表示前 $i$ 个数中是否存在子集和为 $s$。边界 $dp[0][0]=\mathsf{true}$。
+递推：
+\[
+  dp[i][s]=dp[i-1][s]\vee\bigl(s\ge a_i\wedge dp[i-1][s-a_i]\bigr).
+\]
+最终返回 $dp[n][B]$。
+
+\paragraph{空间优化}
+用一维数组 $dp[s]$，对每个 $a_i$ 从 $B$ 递减到 $a_i$ 更新：
+\[
+  dp[s]\gets dp[s]\vee dp[s-a_i].
+\]
+必须递减，否则同一个数会被重复使用。
+
+\paragraph{例子}
+$[1,5,11,5]$ 总和 $22$，目标 $11$。子集 $\{11\}$ 或 $\{5,5,1\}$ 都达到 $11$，
+所以返回 true。
+
+\section{作业三：网络流}
+
+\subsection{Kőnig 定理}
+
+\paragraph{题目}
+证明二分图 $G=(L\cup R,E)$ 中，最大匹配大小等于最小点覆盖大小。
+
+\paragraph{流网络构造}
+建立网络 $N$：
+\begin{itemize}
+  \item 新增源点 $s$ 和汇点 $t$。
+  \item 对每个 $u\in L$ 加边 $s\to u$，容量 $1$。
+  \item 对每条二分图边 $(u,v)$，$u\in L,v\in R$，加边 $u\to v$，容量 $+\infty$。
+  \item 对每个 $v\in R$ 加边 $v\to t$，容量 $1$。
+\end{itemize}
+
+\paragraph{最大流等于最大匹配}
+任意匹配 $M$ 可转化为流：若 $(u,v)\in M$，就在路径 $s\to u\to v\to t$
+上送 $1$ 单位流。由于匹配不共享端点，容量不冲突。反过来，容量全为整数，存在整数最大流；
+每个流量为 $1$ 的中间边 $u\to v$ 构成匹配，因为 $s\to u$ 和 $v\to t$ 容量均为 $1$。
+
+\paragraph{最小割等于最小点覆盖}
+取任意有限容量的 $s$--$t$ 割 $(S,T)$。由于 $L$ 到 $R$ 的边容量为 $+\infty$，
+有限割不可能切断这样的边，即不存在 $u\in S\cap L$、$v\in T\cap R$ 且 $(u,v)\in E$。
+由割构造点集
+\[
+  C=(L\cap T)\cup(R\cap S).
+\]
+任意边 $(u,v)\in E$ 若 $u\in S$，则必须 $v\in S$，于是 $v\in C$；若 $u\in T$，
+则 $u\in C$。所以 $C$ 是点覆盖。割容量正好为
+\[
+  |L\cap T|+|R\cap S|=|C|.
+\]
+反过来，任意点覆盖 $C$ 也能构造同容量割。因此最小割容量等于最小点覆盖大小。由最大流最小割定理得证。
+
+\paragraph{例子}
+$L=\{a,b\}$，$R=\{x,y\}$，边为 $a x,a y,b y$。最大匹配可取
+$\{a x,b y\}$，大小 $2$。最小点覆盖可取 $\{a,b\}$ 或 $\{x,y\}$，大小也是 $2$。
+
+\subsection[删 k 条边使单位容量网络最大流下降最多]{删 $k$ 条边使单位容量网络最大流下降最多}
+
+\paragraph{题目}
+给定单位容量网络 $G=(V,E)$、源 $s$、汇 $t$ 和参数 $k$。删除至多 $k$ 条边，使删除后的最大
+$s$--$t$ 流尽可能小。
+
+\paragraph{关键观察}
+单位容量下，每个 $s$--$t$ 割的容量就是跨割边数。删除一组边 $F$ 后，最大流值为
+\[
+  \lambda(G-F)=\min_C \bigl(|\delta^+(C)|-|F\cap\delta^+(C)|\bigr),
+\]
+其中 $C$ 遍历所有包含 $s$ 且不包含 $t$ 的点集。要让最大流尽量小，本质是在某个割上删除尽可能多的边。
+
+\paragraph{多项式算法}
+枚举目标新流值 $q$，或等价地计算
+\[
+  \min_C \max\{0,|\delta^+(C)|-k\}.
+\]
+因为删边只对一个割有用，最优值为
+\[
+  \min_C \bigl(|\delta^+(C)|-\min\{k,|\delta^+(C)|\}\bigr)
+  =\max\{0,\lambda(G)-k\},
+\]
+其中 $\lambda(G)$ 是原图最小割容量。算法为：
+\begin{enumerate}
+  \item 求一个最小 $s$--$t$ 割 $C^*$，容量 $\lambda$。
+  \item 删除该割上的 $\min\{k,\lambda\}$ 条边。
+  \item 新最大流值为 $\lambda-\min\{k,\lambda\}=\max\{0,\lambda-k\}$。
+\end{enumerate}
+
+\paragraph{正确性}
+任意删除 $k$ 条边最多使任意固定割的容量下降 $k$。特别地，原图的每个 $s$--$t$ 割容量至少
+$\lambda$，删除后每个割容量至少 $\lambda-k$，也至少为 $0$。由最大流最小割定理，删除后最大流不可能低于 $\max\{0,\lambda-k\}$。删除一个最小割中的
+$\min\{k,\lambda\}$ 条边正好达到这个下界。
+
+\paragraph{例子}
+若原图有 $5$ 条边不相交的 $s$--$t$ 路径，则最小割为 $5$。删 $2$ 条最小割边后最大流变为
+$3$，任何删法都不可能低于 $3$。
+
+\subsection[至少为最大流 90\% 的最小费用流]{至少为最大流 $90\%$ 的最小费用流}
+
+\paragraph{题目}
+给定带容量和费用的网络，先令最大流值为 $F$。要求找费用最小的流，使流值至少为
+$0.9F$。
+
+\paragraph{直接做法}
+若容量为整数，令
+\[
+  R=\lceil 0.9F\rceil.
+\]
+在原网络上求发送恰好 $R$ 单位流的最小费用流。因为费用非负时，发送更多流不会使“恰好
+$R$ 单位”的最优解变差；若存在负费用边，则题目应明确是“至少 $R$”而非“恰好 $R$”，可以用下面的辅助边构造。
+
+\paragraph{辅助网络构造}
+新增源点 $s'$，保留原源点 $s$ 和汇点 $t$。加入两条费用为 $0$ 的边：
+\[
+  s'\to s \text{ 容量 }F,\qquad s'\to t \text{ 容量 }F-R.
+\]
+然后在新网络中求从 $s'$ 到 $t$ 的恰好 $F$ 单位最小费用流。最多 $F-R$ 单位可以通过
+$s'\to t$ 直接到达汇点，剩余至少 $R$ 单位必须进入原网络。
+
+\paragraph{为什么正确}
+新网络中任意 $F$ 单位流，设直接边 $s'\to t$ 上流量为 $z\le F-R$，则进入原网络的流量为
+$F-z\ge R$。费用只来自原网络，所以它对应一个原网络中至少 $R$ 单位的可行流。反过来，
+原网络任意 $r\ge R$ 的可行流都能在新网络中补上 $F-r\le F-R$ 单位直接流，得到总量
+$F$ 且费用不变。因此新网络的最小费用最大流与原问题等价。
+
+\paragraph{例子}
+若最大流 $F=10$，则 $R=9$。新增 $s'\to t$ 容量 $1$，求 $10$ 单位流。算法最多能绕过
+$1$ 单位，其余至少 $9$ 单位必须走原网络。
+
+\subsection{带点供需的可行循环}
+
+\paragraph{题目}
+有向图边容量为 $c_e$。每个点有 demand $d_v$：若 $d_v>0$ 表示需求，若
+$d_v<0$ 表示供给。循环流 $f$ 需满足容量约束与
+\[
+  \sum_{e\in \delta^-(v)}f(e)-\sum_{e\in\delta^+(v)}f(e)=d_v.
+\]
+判断是否存在可行循环。
+
+\paragraph{算法}
+首先检查
+\[
+  \sum_{v\in V}d_v=0.
+\]
+若不为 $0$，不可能可行。然后构造新网络：
+\begin{itemize}
+  \item 新增超级源 $s$ 和超级汇 $t$。
+  \item 保留原图所有边及容量。
+  \item 若 $d_v<0$，从 $s$ 向 $v$ 加边，容量 $-d_v$。
+  \item 若 $d_v>0$，从 $v$ 向 $t$ 加边，容量 $d_v$。
+\end{itemize}
+求最大流，判断是否能饱和所有从 $s$ 出发的边，也等价于流值是否为
+\[
+  \sum_{d_v>0}d_v.
+\]
+
+\paragraph{正确性}
+若原图有满足供需的循环，则每个供给点净流出 $-d_v$，每个需求点净流入 $d_v$。
+加上 $s$ 到供给点、需求点到 $t$ 的边后，就得到从 $s$ 到 $t$ 的流，并饱和所有供给边。
+反过来，若新网络中这些边都饱和，删去 $s,t$ 及附加边，原图中每个点的流量平衡正好给出
+对应 demand。
+
+\paragraph{例子}
+若 $a$ 供给 $3$，$b$ 需求 $2$，$c$ 需求 $1$，且边 $a\to b$ 容量 $2$、$a\to c$
+容量 $1$，则新网络中 $s\to a$ 容量 $3$，$b\to t$ 容量 $2$，$c\to t$ 容量 $1$，
+最大流为 $3$，可行。
+
+\subsection{点容量转化为边容量}
+
+\paragraph{题目}
+网络除边容量外，每个顶点 $v$ 还有点容量 $b_v$，限制通过该点的流量。要求转化为只有边容量的等价网络。
+
+\paragraph{构造}
+把每个顶点 $v$ 拆成两个点 $v_{\mathrm{in}}$ 和 $v_{\mathrm{out}}$，加入边
+\[
+  v_{\mathrm{in}}\to v_{\mathrm{out}}
+\]
+容量为 $b_v$。原图每条边 $(u,v)$ 改成
+\[
+  u_{\mathrm{out}}\to v_{\mathrm{in}}
+\]
+容量保持原边容量。源点和汇点通常不限制通过量，可令它们的拆分边容量为 $+\infty$；若题目也限制源汇，则按给定点容量设置。
+
+\paragraph{规模}
+若原图有 $n$ 个点、$m$ 条边，则新图有 $2n$ 个点、$m+n$ 条边。
+
+\paragraph{正确性}
+原图中所有进入 $v$ 并再离开 $v$ 的流，在新图中都必须经过唯一的拆分边
+$v_{\mathrm{in}}\to v_{\mathrm{out}}$，所以该边容量精确表达点容量。新图中的任意流也可合并回原图，拆分边流量就是通过该点的总流量。
+
+\paragraph{例子}
+若 $a$ 点容量为 $2$，有边 $s\to a$ 容量 $5$、$a\to t$ 容量 $5$，拆点后
+$a_{\mathrm{in}}\to a_{\mathrm{out}}$ 容量 $2$，最大流从 $5$ 降为 $2$。
+
+\subsection{校园游览的不相交路径}
+
+\paragraph{题目}
+有 $k$ 个起点 $s_1,\dots,s_k$ 和一组终点 $T$。要求为每个起点找一条到某个终点的路径，
+不同路径不能共享边，并且不同队伍不能在同一个终点结束。进一步要求版本中路径也不能共享中间顶点。
+
+\paragraph{边不相交版本}
+构造流网络：
+\begin{itemize}
+  \item 新增超级源 $s$ 和超级汇 $t$。
+  \item 原图每条边容量设为 $1$。
+  \item 对每个起点 $s_i$ 加边 $s\to s_i$，容量 $1$。
+  \item 对每个终点 $r\in T$ 加边 $r\to t$，容量 $1$。
+\end{itemize}
+求最大流。若最大流值为 $k$，则存在所需路径；否则不存在。
+
+\paragraph{为什么正确}
+容量为 $1$ 的原图边保证同一条道路最多被一条路径使用。超级源边容量 $1$ 保证每个起点最多发出一条路径；终点到汇点的容量 $1$ 保证每个终点最多接收一条路径。整数容量保证存在整数流，将 $k$ 单位整数流分解为 $k$ 条 $s$--$t$ 路径，去掉超级源汇边即为游览路径。
+
+\paragraph{点和边都不相交版本}
+在边不相交网络基础上，对每个原图顶点 $v$ 拆成
+$v_{\mathrm{in}},v_{\mathrm{out}}$，加入容量 $1$ 的边
+$v_{\mathrm{in}}\to v_{\mathrm{out}}$。原边 $(u,v)$ 改成
+$u_{\mathrm{out}}\to v_{\mathrm{in}}$，容量 $1$。超级源连接起点的 in 点或 out 点均可，但要与拆点约定一致；终点 out 点连接超级汇。这样每个顶点最多被一条路径通过。
+
+\paragraph{例子}
+若两个起点 $a,b$ 都只能经同一条边 $x\to y$ 到达终点集合，则最大流最多为 $1$，说明无法安排两条边不相交路径。若存在两条完全不同的通道，最大流为 $2$。
+
+\section{作业四：线性规划}
+
+\subsection{互补松弛性质}
+
+\paragraph{题目}
+证明标准型原问题和对偶问题的互补松弛条件。
+
+\paragraph{标准形式}
+考虑
+\[
+  \max c^Tx \quad\text{s.t. } Ax\le b,\ x\ge 0
+\]
+及其对偶
+\[
+  \min b^Ty \quad\text{s.t. } A^Ty\ge c,\ y\ge 0.
+\]
+设 $x^*,y^*$ 分别为可行解。
+
+\paragraph{弱对偶差距展开}
+因为 $b-Ax^*\ge 0$、$y^*\ge0$、$A^Ty^*-c\ge0$、$x^*\ge0$，有
+\[
+  b^Ty^*-c^Tx^*
+  =
+  (b-Ax^*)^Ty^*+(A^Ty^*-c)^Tx^*
+  \ge 0.
+\]
+若 $x^*,y^*$ 均最优，由强对偶 $c^Tx^*=b^Ty^*$，所以右侧两个非负项之和为 $0$，
+每一项都必须为 $0$：
+\[
+  y_i^*(b_i-A_i x^*)=0\quad \forall i,
+\]
+\[
+  x_j^*((A^Ty^*)_j-c_j)=0\quad \forall j.
+\]
+
+\paragraph{四个等价说法}
+\begin{enumerate}
+  \item 若 $y_i^*>0$，则原问题第 $i$ 个约束必须紧，即 $A_i x^*=b_i$。
+  \item 若原问题第 $i$ 个约束不紧，即 $A_i x^*<b_i$，则 $y_i^*=0$。
+  \item 若 $x_j^*>0$，则对偶第 $j$ 个约束必须紧，即 $(A^Ty^*)_j=c_j$。
+  \item 若对偶第 $j$ 个约束不紧，即 $(A^Ty^*)_j>c_j$，则 $x_j^*=0$。
+\end{enumerate}
+
+\paragraph{例子}
+若最优解中某资源约束还有剩余，说明该资源的影子价格为 $0$；否则若影子价格为正，
+资源一定被完全用尽。
+
+\subsection{把非线性约束写成线性规划}
+
+\paragraph{绝对值约束}
+题目：
+\[
+  \max 5x+2y
+  \quad\text{s.t.}\quad
+  0\le x\le 20,\ |x-y|\le 5.
+\]
+绝对值约束等价于两条线性约束：
+\[
+  x-y\le 5,\qquad y-x\le 5.
+\]
+所以 LP 为
+\[
+\begin{aligned}
+  \max\quad &5x+2y\\
+  \text{s.t.}\quad &0\le x\le 20,\\
+  &x-y\le 5,\\
+  &y-x\le 5.
+\end{aligned}
+\]
+
+\paragraph{最大化最小值}
+题目：
+\[
+  \max \min\{x_1,x_2,x_3\}
+  \quad\text{s.t.}\quad
+  x_1+x_2+x_3=15.
+\]
+引入辅助变量 $t$ 表示三者中的下界。最大化 $t$ 并要求 $t\le x_i$：
+\[
+\begin{aligned}
+  \max\quad &t\\
+  \text{s.t.}\quad &x_1+x_2+x_3=15,\\
+  &t\le x_1,\quad t\le x_2,\quad t\le x_3.
+\end{aligned}
+\]
+若题目隐含 $x_i\ge0$，应加入非负约束。最优时会把三个变量尽量均衡，例如非负时
+$x_1=x_2=x_3=5$，$t=5$。
+
+\subsection{含指定顶点、成本受限的最大利润简单环}
+
+\paragraph{题目}
+给定图 $G=(V,E)$，每个顶点 $v$ 有利润 $p_v$，每条边 $e$ 有成本 $c_e$。要求找一个包含指定顶点 $r$ 的简单环，使边成本总和不超过 $B$，并最大化环上顶点利润总和。写整数线性规划。
+
+\paragraph{变量}
+\[
+  x_v\in\{0,1\}\quad \text{表示顶点 }v\text{ 是否在环上},
+\]
+\[
+  y_e\in\{0,1\}\quad \text{表示边 }e\text{ 是否在环上}.
+\]
+以下写无向图版本；有向图可用入度和出度各为 $1$ 的形式。
+
+\paragraph{目标与预算}
+\[
+\begin{aligned}
+  \max\quad &\sum_{v\in V}p_vx_v\\
+  \text{s.t.}\quad &\sum_{e\in E}c_ey_e\le B,\\
+  &x_r=1.
+\end{aligned}
+\]
+
+\paragraph{度约束}
+环上每个被选顶点度数必须为 $2$，未选顶点度数为 $0$：
+\[
+  \sum_{e\in\delta(v)}y_e=2x_v\qquad \forall v\in V.
+\]
+
+\paragraph{连通性与排除子环}
+仅有度约束可能选出多个不相交环。为了保证选出的环包含 $r$ 且没有额外子环，对所有
+非空集合 $S\subseteq V\setminus\{r\}$ 加约束
+\[
+  \sum_{e\in E(S)}y_e\le \sum_{v\in S}x_v-1
+  \qquad \forall \varnothing\ne S\subseteq V\setminus\{r\}.
+\]
+含义是：不包含 $r$ 的任何顶点子集不能在内部形成一个完整环。若某个 $S$ 内所有被选点都形成
+独立子环，则内部边数等于被选顶点数，会违反该约束。
+
+\paragraph{例子}
+若三角形 $r,a,b$ 的三条边都被选，则每个点度为 $2$，预算满足时得到一个合法环。
+若另外还选了不含 $r$ 的三角形 $c,d,e$，则对 $S=\{c,d,e\}$ 有
+$\sum_{E(S)}y_e=3$ 而 $\sum_{S}x_v-1=2$，被约束排除。
+
+\subsection{频率分配的整数线性规划}
+
+\paragraph{题目}
+有电台集合 $S$、频率集合 $F=\{1,\dots,n\}$，相邻电台不能使用相同频率。目标是给每个电台分配一个频率，并最小化使用的频率数量。
+
+\paragraph{变量}
+\[
+  x_{i,f}\in\{0,1\}\quad \text{表示电台 }i\text{ 是否使用频率 }f,
+\]
+\[
+  y_f\in\{0,1\}\quad \text{表示频率 }f\text{ 是否被使用}.
+\]
+
+\paragraph{ILP}
+\[
+\begin{aligned}
+  \min\quad &\sum_{f\in F}y_f\\
+  \text{s.t.}\quad
+  &\sum_{f\in F}x_{i,f}=1 &&\forall i\in S,\\
+  &x_{i,f}\le y_f &&\forall i\in S,\ f\in F,\\
+  &x_{i,f}+x_{j,f}\le 1 &&\forall (i,j)\in A,\ f\in F,\\
+  &x_{i,f},y_f\in\{0,1\}.
+\end{aligned}
+\]
+第一组约束保证每个电台恰好一个频率；第二组保证只要某电台用频率 $f$，就计入
+$y_f$；第三组保证相邻电台不同频。
+
+\paragraph{例子}
+若三个电台构成三角形，则每两台相邻。ILP 会迫使三个电台使用三个不同频率，目标值为 $3$。
+若三个电台是一条路径，则两个频率足够。
+
+\subsection{研究生分配办公室}
+
+\paragraph{题目}
+办公室 $j$ 有 $c_j$ 张桌子，学生 $i$ 愿意为办公室 $j$ 支付 $p_{ij}$。要求最大化总收益，
+并说明可用最小费用流求解且不会产生学生共享桌子或分时使用的情况。
+
+\paragraph{最小费用流构造}
+建立网络：
+\begin{itemize}
+  \item 源点 $s$ 到每个学生 $i$ 加边，容量 $1$、费用 $0$。
+  \item 学生 $i$ 到办公室 $j$ 加边，容量 $1$、费用 $-p_{ij}$。
+  \item 办公室 $j$ 到汇点 $t$ 加边，容量 $c_j$、费用 $0$。
+\end{itemize}
+发送 $\min\{\text{学生数},\sum_j c_j\}$ 单位流并最小化费用。由于费用为负收益，最小费用等价于最大收益。
+
+\paragraph{整数性}
+所有容量均为整数，最小费用流存在整数最优解。整数流中，学生到办公室的边流量只能是
+$0$ 或 $1$，所以一个学生不会被分到多个办公室；办公室到汇点容量 $c_j$ 保证最多安排
+$c_j$ 名学生，即不会共享桌子。
+
+\paragraph{线性规划}
+令 $x_{ij}\in\{0,1\}$ 表示学生 $i$ 是否分到办公室 $j$：
+\[
+\begin{aligned}
+  \max\quad &\sum_i\sum_j p_{ij}x_{ij}\\
+  \text{s.t.}\quad
+  &\sum_j x_{ij}\le 1 &&\forall i,\\
+  &\sum_i x_{ij}\le c_j &&\forall j,\\
+  &x_{ij}\ge0.
+\end{aligned}
+\]
+由于这是二分图 $b$-matching/运输问题的全单模 LP，LP 松弛也有整数最优解。
+
+\paragraph{例子}
+两个学生、一个办公室容量 $1$，支付分别为 $10$ 和 $7$。最小费用流会选择费用
+$-10$ 的边，即把第一个学生分入该办公室。
+
+\subsection{设施选址的整数规划}
+
+\paragraph{题目}
+设施集合 $F$，城市集合 $C$。打开设施 $i$ 的成本为 $f_i$，把城市 $j$ 连接到设施 $i$ 的成本为
+$c_{ij}$。要求选择打开的设施，并把每个城市连到某个打开设施，使总成本最小。
+
+\paragraph{变量}
+\[
+  y_i\in\{0,1\}\quad \text{表示设施 }i\text{ 是否打开},
+\]
+\[
+  x_{ij}\in\{0,1\}\quad \text{表示城市 }j\text{ 是否连接到设施 }i.
+\]
+
+\paragraph{ILP}
+\[
+\begin{aligned}
+  \min\quad &\sum_{i\in F} f_i y_i+\sum_{j\in C}\sum_{i\in F}c_{ij}x_{ij}\\
+  \text{s.t.}\quad
+  &\sum_{i\in F}x_{ij}=1 &&\forall j\in C,\\
+  &x_{ij}\le y_i &&\forall i\in F,\ j\in C,\\
+  &x_{ij},y_i\in\{0,1\}.
+\end{aligned}
+\]
+第一组约束保证每个城市被服务一次；第二组约束保证城市只能连到已打开的设施。
+
+\paragraph{例子}
+若只有一个城市，两个设施打开成本分别为 $5,100$，连接成本分别为 $3,1$，总成本分别为
+$8,101$，模型会打开第一个设施。
+
+\section{作业五：NP 问题}
+
+\subsection{最大度为 3 的独立集仍然 NP-hard}
+
+\paragraph{题目}
+证明 Independent Set 即使限制在最大度数为 $3$ 的图上仍是 NP-hard。
+
+\paragraph{思路}
+普通 3SAT 到 Independent Set 的标准归约会造成变量文字顶点度数很高，因为同一个变量出现很多次。要把度数降到 $3$，需要先把每个出现多次的变量替换成多个副本，并用“环形一致性”强迫这些副本取相同真假。
+
+\paragraph{构造}
+给定 3CNF 公式 $\varphi$。对每个变量 $x$，设它在公式中一共出现 $r$ 次。创建 $r$ 个副本
+$x_1,\dots,x_r$，分别对应每次出现。用新的子句强制这些副本一致：
+\[
+  (\neg x_i\vee x_{i+1})\quad\text{和}\quad(x_i\vee \neg x_{i+1})
+  \qquad i=1,\dots,r,
+\]
+其中下标循环。这两类子句等价于 $x_i\Rightarrow x_{i+1}$ 和
+$x_{i+1}\Rightarrow x_i$，因此所有副本取值相同。
+
+把原公式每个文字替换为对应副本后，得到每个变量副本只在常数个子句中出现的 SAT 实例。
+再用 3SAT 到 Independent Set 的标准构造：每个子句建一个三角形，三角形的三个顶点代表三个文字；不同子句中互补文字之间加冲突边。目标独立集大小为子句数。
+
+\paragraph{度数为什么可控}
+每个文字顶点在自己的子句三角形中连 $2$ 条边；由于副本只出现常数次，互补冲突边也为常数条。通过一致性环的常规 bounded occurrence 归约，可把每个顶点度数控制到 $3$。更严格的教材版本会使用变量 gadget，使每个出现点只连接一个子句顶点和两个一致性边，因此最大度为 $3$。
+
+\paragraph{正确性}
+若原公式可满足，则给所有副本相同取值，每个子句至少一个文字为真，在对应三角形中选一个真文字顶点。真赋值不会同时选互补文字，所以得到大小为子句数的独立集。
+
+反过来，若构造图有大小为子句数的独立集，则每个子句三角形最多选一个，而总共选了子句数个顶点，所以每个子句恰好选一个。冲突边保证被选文字不互相矛盾，一致性 gadget 保证同一原变量的副本取值一致，因此可恢复满足赋值。
+
+\paragraph{例子}
+若 $x$ 出现三次，就用 $x_1,x_2,x_3$ 分别替代三次出现，并加入
+$x_1\leftrightarrow x_2$、$x_2\leftrightarrow x_3$、$x_3\leftrightarrow x_1$ 的 CNF 表达。
+这样任一满足赋值中三个副本必须一致。
+
+\subsection{Hitting Set 是 NP-complete}
+
+\paragraph{题目}
+给定全集 $U$、子集族 $\mathcal S=\{S_1,\dots,S_m\}$ 和预算 $k$，问是否存在
+$H\subseteq U$，$|H|\le k$，使 $H\cap S_i\ne\varnothing$ 对所有 $i$ 成立。
+
+\paragraph{属于 NP}
+证书为集合 $H$。验证 $|H|\le k$，并逐个检查每个 $S_i$ 是否与 $H$ 相交，时间多项式。
+
+\paragraph{NP-hard：从 Vertex Cover 归约}
+给定 Vertex Cover 实例 $G=(V,E),k$。构造 Hitting Set：
+\[
+  U=V,
+\]
+对每条边 $e=(u,v)\in E$ 建一个集合
+\[
+  S_e=\{u,v\}.
+\]
+预算仍为 $k$。
+
+\paragraph{双向证明}
+若 $C\subseteq V$ 是大小不超过 $k$ 的点覆盖，则每条边 $e=(u,v)$ 至少有一个端点在
+$C$ 中，所以 $C\cap S_e\ne\varnothing$，$C$ 是 hitting set。
+
+若 $H$ 是大小不超过 $k$ 的 hitting set，则对每条边 $e=(u,v)$，有
+$H\cap\{u,v\}\ne\varnothing$，即 $H$ 至少包含边的一个端点，所以 $H$ 是点覆盖。
+
+\paragraph{例子}
+图为路径 $a-b-c$，边集对应集合 $\{a,b\}$、$\{b,c\}$。预算 $1$ 时，
+$H=\{b\}$ 打中所有集合，对应点覆盖 $\{b\}$。
+
+\subsection{Minimum Dominating Set 是 NP-complete}
+
+\paragraph{题目}
+图 $G=(V,E)$ 的 dominating set 是点集 $D$，使每个不在 $D$ 中的顶点都至少有一个邻居在
+$D$ 中。问是否存在大小不超过 $k$ 的 dominating set。可假设 $G$ 连通。
+
+\paragraph{属于 NP}
+证书为 $D$。验证每个顶点要么在 $D$ 中，要么有邻居在 $D$ 中，时间 $O(|V|+|E|)$。
+
+\paragraph{NP-hard：从 Vertex Cover 归约}
+给定连通图 $G=(V,E)$ 和预算 $k$。构造图 $G'$：
+保留所有原顶点和原边。对每条边 $e=(u,v)$，新增一个顶点 $w_e$，并连接
+\[
+  w_eu,\qquad w_ev.
+\]
+预算仍为 $k$。
+
+\paragraph{若有点覆盖则有支配集}
+若 $C$ 是 $G$ 的点覆盖，则每个原顶点因为 $G$ 连通，要么在 $C$ 中，要么与某个覆盖点相邻
+（孤立点可单独处理；题目假设连通）。每个新增点 $w_e$ 连接边 $e$ 的两个端点，而 $C$
+覆盖 $e$，所以 $w_e$ 至少邻接一个 $C$ 中顶点。因此 $C$ 是 $G'$ 的 dominating set。
+
+\paragraph{若有支配集则有点覆盖}
+设 $D$ 是 $G'$ 中大小不超过 $k$ 的支配集。若 $D$ 包含某个新增点 $w_e$，其中
+$e=(u,v)$，则可用 $u$ 替换 $w_e$：顶点 $w_e$ 被 $u$ 支配，$u$ 自己在支配集中，
+而 $w_e$ 原来能支配的只有 $u,v$，这些由 $u$ 或原图连通性不会变差。重复替换后得到只含原顶点的支配集 $D'$。
+
+若某条原边 $e=(u,v)$ 的两个端点都不在 $D'$，则新增点 $w_e$ 的邻居只有 $u,v$，
+且 $w_e\notin D'$，所以 $w_e$ 无法被支配，矛盾。因此每条边至少一个端点在 $D'$ 中，
+$D'$ 是 $G$ 的点覆盖。
+
+\paragraph{例子}
+路径边 $ab,bc$。为两条边新增 $w_{ab},w_{bc}$。点覆盖 $\{b\}$ 支配所有顶点：
+$a,c,w_{ab},w_{bc}$ 都邻接 $b$。
+
+\subsection{NAE-3SAT 是 NP-complete}
+
+\paragraph{题目}
+NAE-3SAT 要求每个 3CNF 子句中至少有一个真文字且至少有一个假文字，即不能全真也不能全假。
+
+\paragraph{属于 NP}
+给定赋值，逐个子句检查是否同时包含真和假文字，时间多项式。
+
+\paragraph{从 3SAT 归约}
+给定 3SAT 公式
+\[
+  \varphi=\bigwedge_j (a_j\vee b_j\vee c_j).
+\]
+引入一个全局变量 $z$，并对每个原子句引入辅助变量 $y_j$，替换为两个 NAE 子句：
+\[
+  \operatorname{NAE}(a_j,b_j,y_j),
+  \qquad
+  \operatorname{NAE}(\neg y_j,c_j,z).
+\]
+
+\paragraph{正确性}
+NAE 赋值整体取反仍满足 NAE 公式。因此可不失一般性令 $z=\mathsf{F}$。
+
+若原 3SAT 子句 $(a\vee b\vee c)$ 被满足：
+\begin{itemize}
+  \item 若 $a$ 或 $b$ 为真，则可令 $y=\mathsf{F}$，第一个 NAE 子句不会全假；第二个子句中
+  $\neg y=\mathsf{T}$、$z=\mathsf{F}$，也满足 NAE。
+  \item 若只有 $c$ 为真而 $a,b$ 为假，则令 $y=\mathsf{T}$。第一个子句含假、真；
+  第二个子句为 $(\mathsf{F},\mathsf{T},\mathsf{F})$，也满足。
+\end{itemize}
+
+反过来，若两个 NAE 子句在 $z=\mathsf{F}$ 下都满足。若 $c$ 为假，则第二个子句
+$(\neg y,c,z)$ 要满足 NAE，不能全假，所以必须 $\neg y$ 为真，即 $y$ 为假。此时第一个子句
+$(a,b,y)$ 中 $y$ 为假，要满足 NAE，必须 $a$ 或 $b$ 为真。因此 $a\vee b\vee c$ 为真。
+若 $c$ 为真，原子句也显然满足。
+
+\paragraph{例子}
+子句 $(x\vee \neg y\vee z)$ 变为
+\[
+  \operatorname{NAE}(x,\neg y,u),
+  \qquad
+  \operatorname{NAE}(\neg u,z,z_0),
+\]
+并统一令 $z_0=\mathsf{F}$。
+
+\subsection{Set Packing 是 NP-complete}
+
+\paragraph{题目}
+给定全集 $U$、子集列表 $S_1,\dots,S_m$ 和整数 $k$，问是否存在 $k$ 个两两不相交的集合。
+
+\paragraph{属于 NP}
+证书为选出的 $k$ 个集合编号。验证每对集合是否相交即可，时间多项式。
+
+\paragraph{NP-hard：从 Independent Set 归约}
+给定图 $G=(V,E)$ 和整数 $k$。构造全集
+\[
+  U=E.
+\]
+对每个顶点 $v\in V$，构造集合
+\[
+  S_v=\{e\in E: e\text{ incident to }v\},
+\]
+即与 $v$ 相 incident 的边集合。目标仍为 $k$。
+
+\paragraph{双向证明}
+若 $I\subseteq V$ 是大小为 $k$ 的独立集，则任意两个顶点 $u,v\in I$ 不相邻，所以没有边同时 incident to $u$ 和 $v$。因此集合 $S_u,S_v$ 不相交，得到 $k$ 个两两不相交集合。
+
+若存在 $k$ 个两两不相交集合 $S_{v_1},\dots,S_{v_k}$，则任意 $v_i,v_j$ 之间不能有边；
+否则该边同时属于 $S_{v_i}$ 和 $S_{v_j}$，两集合相交。故这些顶点构成独立集。
+
+\paragraph{例子}
+三角形中每个顶点对应两条 incident 边，任意两个集合都会共享一条边，所以最多只能选
+$1$ 个集合，对应最大独立集大小 $1$。
+
+\subsection{Feedback Vertex Set 是 NP-hard}
+
+\paragraph{题目}
+Feedback Vertex Set 问题：给定图 $G$ 和整数 $k$，问是否存在顶点集 $F$，$|F|\le k$，
+使删除 $F$ 后图无环。
+
+\paragraph{从 Vertex Cover 归约}
+给定 Vertex Cover 实例 $G=(V,E),k$。构造图 $G'$：保留 $G$ 的每条边 $(u,v)$，
+并为其新增辅助顶点 $w_e$，加入边
+\[
+  (u,w_e),(w_e,v),(u,v),
+\]
+即每条原边变成一个三角形 $u,v,w_e$。预算仍为 $k$。
+
+\paragraph{若有点覆盖则有 FVS}
+若 $C$ 是 $G$ 的点覆盖，则每个三角形 $u,v,w_e$ 至少有一个原端点在 $C$ 中。删除
+$C$ 后，所有这些三角形都被打破。由于每个环在构造图中都可映射为原图中未覆盖边形成的结构，
+删除覆盖所有原边端点的 $C$ 后不会剩下包含完整原边三角结构的环，所以 $C$ 是 FVS。
+
+\paragraph{若有 FVS 则有点覆盖}
+设 $F$ 是 $G'$ 的反馈顶点集。若 $F$ 包含某个辅助点 $w_e$，其中 $e=(u,v)$，
+可用 $u$ 替换它，大小不增。这样不会产生新环：删除 $u$ 至少打破包含 $w_e$ 的三角形，
+并且 $u$ 是原图端点，比删除只属于一个三角形的 $w_e$ 更强。重复后得到只含原顶点的
+FVS $F'$。
+
+若存在原边 $e=(u,v)$ 的两个端点都不在 $F'$，则辅助点 $w_e$ 也不在 $F'$，因为
+$F'$ 只含原顶点。于是三角形 $u,v,w_e$ 完整保留，形成环，矛盾。因此每条原边至少一个端点在
+$F'$ 中，$F'$ 是点覆盖。
+
+\paragraph{例子}
+若原图只有一条边 $(u,v)$，构造后为三角形 $u,v,w$。大小为 $1$ 的点覆盖 $\{u\}$，
+也是大小为 $1$ 的反馈顶点集，删除它后三角形消失。
+
+\section{作业六：近似算法}
+
+\subsection[频率为 f 的 Set Cover 的 f-近似]{频率为 $f$ 的 Set Cover 的 $f$-近似}
+
+\paragraph{题目}
+Set Cover 中每个元素最多出现在 $f$ 个集合里。用分层算法给出 $f$-近似，并给出紧例子。
+
+\paragraph{算法（对偶增长/分层）}
+设集合成本为 $c_S$，未覆盖元素集合为 $U'$。初始化对偶变量 $y_e=0$，答案
+$\mathcal C=\varnothing$。
+\begin{enumerate}
+  \item 当 $U'$ 非空时，同时提高所有 $e\in U'$ 的 $y_e$，直到某个集合 $S$ 变紧：
+  \[
+    \sum_{e\in S}y_e=c_S.
+  \]
+  \item 把所有新变紧且包含未覆盖元素的集合加入 $\mathcal C$。
+  \item 删除已被 $\mathcal C$ 覆盖的元素，继续。
+\end{enumerate}
+
+\paragraph{可行对偶}
+Set Cover 的 LP 对偶为
+\[
+  \max \sum_{e\in U}y_e
+  \quad\text{s.t.}\quad
+  \sum_{e\in S}y_e\le c_S\ \forall S,\ y_e\ge0.
+\]
+算法只把 $y$ 增长到某个集合刚好紧，因此始终保持对偶可行。所以
+\[
+  \sum_e y_e\le \OPT.
+\]
+
+\paragraph{近似比证明}
+算法选出的每个集合 $S$ 都满足 $c_S=\sum_{e\in S}y_e$。于是
+\[
+  ALG=\sum_{S\in\mathcal C}c_S
+  =\sum_{S\in\mathcal C}\sum_{e\in S}y_e
+  =\sum_{e\in U} y_e\cdot |\{S\in\mathcal C:e\in S\}|.
+\]
+每个元素最多出现在 $f$ 个集合中，所以
+\[
+  ALG\le f\sum_e y_e\le f\OPT.
+\]
+
+\paragraph{紧例子}
+令全集 $U=\{e_1,\dots,e_f\}$。有一个集合 $S_0=U$，成本 $1+\epsilon$；还有
+$f$ 个单元素集合 $S_i=\{e_i\}$，每个成本 $1$。每个元素出现在两个集合中，故
+$f_{\max}=2$ 时可得到接近 $2$ 的例子；推广到频率 $f$ 时，让每个元素出现在一个全局集合和
+$f-1$ 个局部集合中，并调成本使算法先选所有局部集合，最优选全局集合。比值可逼近 $f$。
+
+\subsection{最大权 Hamilton 环的 2-近似}
+
+\paragraph{题目}
+完全无向图每条边有非负权。目标是找权重最大的 Hamilton cycle。给出贪心算法并证明保证因子为 $2$。
+
+\paragraph{算法}
+用最近邻式贪心构造最大权 Hamilton 环：
+\begin{enumerate}
+  \item 任取起点 $v_1$，令当前路径为 $P=(v_1)$。
+  \item 若当前最后一个顶点为 $v_i$，就在尚未访问的顶点中选取
+  \[
+    v_{i+1}\in \arg\max_{u\notin P} c(v_i,u),
+  \]
+  并把 $v_{i+1}$ 加到路径末尾。
+  \item 当所有顶点都被访问后，加入闭合边 $(v_n,v_1)$，得到 Hamilton 环。
+\end{enumerate}
+
+\paragraph{证明}
+记贪心得到的路径边集合为
+\[
+  P_G=\{(v_1,v_2),(v_2,v_3),\dots,(v_{n-1},v_n)\},
+\]
+闭合边为 $(v_n,v_1)$。令
+\[
+  W_P=\sum_{i=1}^{n-1}c(v_i,v_{i+1}),\qquad
+  ALG=W_P+c(v_n,v_1).
+\]
+由于边权非负，$ALG\ge W_P$。
+
+取最优 Hamilton 环 $C^*$ 中任意一条边 $(u,v)$。在贪心访问顺序中，设 $u$ 是较早被访问的端点。
+当算法位于 $u$ 时，顶点 $v$ 还未访问，因此 $v$ 是当时可选的候选点。贪心选择的下一条路径边
+$(u,x)$ 满足
+\[
+  c(u,x)\ge c(u,v).
+\]
+于是可把最优边 $(u,v)$ 的权重收费给贪心路径中从 $u$ 出发的那条边。
+
+在最优 Hamilton 环中，每个顶点度数为 $2$，所以以同一个顶点 $u$ 为较早端点的最优边最多有
+$2$ 条。因此每条贪心路径边最多被收费两次。把所有最优环边求和：
+\[
+  \OPT\le 2W_P\le 2ALG.
+\]
+所以 $ALG\ge \OPT/2$，即该贪心算法是保证因子为 $2$ 的近似算法。
+
+\paragraph{例子}
+若最优环中有边 $(u,v)$，而贪心顺序先访问 $u$ 后访问 $v$，则贪心在 $u$ 处选择下一点时至少可以选择 $v$。因此它实际选出的边权不会小于 $c(u,v)$。每个顶点在最优环中只关联两条边，所以最多造成两次收费。
+
+\subsection{Knapsack 贪心的坏例子与 2-近似组合}
+
+\paragraph{题目}
+0/1 Knapsack 中物品有重量 $w_i$、利润 $p_i$，容量为 $W$。分析两种贪心：按利润密度
+$p_i/w_i$ 排序，或只按利润排序。证明二者单独都可任意坏；再证明取二者较好者可得
+2-近似。
+
+\paragraph{密度贪心的坏例子}
+容量 $W=M$。物品 $a$ 重量 $1$、利润 $2$，密度 $2$；物品 $b$ 重量 $M$、利润 $M$，
+密度 $1$。密度贪心先选 $a$，剩余容量 $M-1$，无法选 $b$，收益 $2$。最优选 $b$，
+收益 $M$。比值 $M/2$ 可任意大。
+
+\paragraph{利润贪心的坏例子}
+容量 $W=M$。物品 $a$ 重量 $M$、利润 $M$；另有 $M-1$ 个小物品，每个重量 $1$、利润
+$M-1$。按单个利润贪心先选 $a$，收益 $M$；最优选所有小物品，收益 $(M-1)^2$。
+比值约为 $M$，可任意大。
+
+\paragraph{2-近似算法}
+按密度从高到低排序，依次装入直到遇到第一个装不下的物品 $j$。令 $S$ 为已经装入的物品集合。
+算法返回 $S$ 与单个最高利润可行物品中利润较大的那个。
+
+\paragraph{证明}
+考虑分数背包最优解。密度顺序下，分数背包会完整选入 $S$，并取物品 $j$ 的一部分。因此
+\[
+  \OPT\le \OPT_{\mathrm{frac}}\le p(S)+p_j.
+\]
+算法值
+\[
+  ALG\ge \max\{p(S),p_j\}\ge \frac{p(S)+p_j}{2}\ge \frac{\OPT}{2}.
+\]
+所以这是 2-近似。
+
+\paragraph{例子}
+容量 $10$，密度顺序选入利润 $30$ 的若干物品后，下一个物品利润 $50$ 但放不下。
+分数上界为 $80$，算法至少返回 $\max\{30,50\}=50\ge80/2$。
+
+\subsection{Next-Fit Bin Packing 的 2-近似与紧例子}
+
+\paragraph{题目}
+Bin Packing 中物品大小 $a_i\in(0,1]$，每个箱容量为 $1$。Next-Fit 只尝试把下一个物品放入当前打开的箱子，若放不下就开新箱。证明它是 2-近似，并给出紧例子。
+
+\paragraph{证明}
+设 Next-Fit 使用 $m$ 个箱，箱 $i$ 的装载量为 $L_i$。除了最后一个箱外，任意相邻两个箱
+$i,i+1$ 的总装载量都大于 $1$。因为箱 $i+1$ 的第一个物品正是由于放不进箱 $i$ 才开新箱，
+所以
+\[
+  L_i+L_{i+1}>1.
+\]
+把箱子两两配对：
+\[
+  (1,2),(3,4),\dots
+\]
+每对装载量大于 $1$，因此总物品大小
+\[
+  A=\sum_i a_i > \left\lfloor\frac m2\right\rfloor.
+\]
+最优箱数满足 $\OPT\ge A$，所以
+\[
+  m<2\OPT+1.
+\]
+按整数化可得 $m\le 2\OPT$（或渐近比为 $2$）。
+
+\paragraph{紧例子}
+取物品序列
+\[
+  \frac12+\epsilon,\ \frac12,\ \frac12+\epsilon,\ \frac12,\ \dots
+\]
+Next-Fit 会把每个物品几乎都放入新箱，因为 $\frac12+\epsilon$ 后放不下 $\frac12$。
+但最优可以把一个 $\frac12+\epsilon$ 与一个 $\frac12-\epsilon$ 类型物品配对。用稍微调整的序列
+\[
+  \frac12+\epsilon,\ \frac12+\epsilon,\ \frac12-\epsilon,\ \frac12-\epsilon,\dots
+\]
+可使 Next-Fit 接近每箱一个，而最优接近两两配对，比值趋近 $2$。
+
+\subsection[Max-Cut 的随机 1/2-近似]{Max-Cut 的随机 $1/2$-近似}
+
+\paragraph{题目}
+给定无向图和非负边权 $w_e$，把顶点划分为 $S$ 与 $V\setminus S$，最大化跨割边权。
+
+\paragraph{算法}
+独立地把每个顶点以概率 $1/2$ 放入 $S$，否则放入 $V\setminus S$。
+
+\paragraph{期望分析}
+对每条边 $e=(u,v)$，定义指示变量 $X_e$ 表示它是否跨割。由于 $u,v$ 独立随机，
+它们落在不同侧的概率为
+\[
+  \Pr[X_e=1]=\frac12.
+\]
+总割权为
+\[
+  X=\sum_{e\in E}w_eX_e.
+\]
+由期望线性性，
+\[
+  \mathbb E[X]=\sum_{e\in E}w_e\mathbb E[X_e]
+  =\frac12\sum_{e\in E}w_e.
+\]
+最优割最多包含所有边，所以
+\[
+  \OPT\le \sum_{e\in E}w_e.
+\]
+因此
+\[
+  \mathbb E[X]\ge \frac12\OPT.
+\]
+
+\paragraph{例子}
+三角形三条边权都为 $1$。任意割最多切两条边，所以 $\OPT=2$。随机割每条边被切概率
+$1/2$，期望为 $3/2\ge1=\OPT/2$。
+
+\subsection[最大度为 d 的图中最大独立集的 d+1 近似]{最大度为 $d$ 的图中最大独立集的 $(d+1)$-近似}
+
+\paragraph{题目}
+给定无向图，最大度不超过 $d$。求最大独立集的近似算法，证明近似因子为 $d+1$。
+
+\paragraph{贪心算法}
+重复执行：
+\begin{enumerate}
+  \item 任取一个顶点 $v$，或取当前度数最小顶点。
+  \item 将 $v$ 加入独立集 $I$。
+  \item 删除 $v$ 及其所有邻居。
+\end{enumerate}
+直到图为空。
+
+\paragraph{正确性}
+每次加入的顶点 $v$ 与之后加入的顶点不相邻，因为它的邻居已经全部删除。因此输出 $I$ 是独立集。
+
+\paragraph{近似比}
+每次选择 $v$ 时，删除的顶点数最多为 $d+1$：包括 $v$ 自己和最多 $d$ 个邻居。最优独立集
+$I^*$ 中，在这一批被删除顶点里最多有 $d+1$ 个顶点。把每批删除顶点都“收费”给本轮选出的
+$v$，得到
+\[
+  |I^*|\le (d+1)|I|.
+\]
+因此
+\[
+  |I|\ge \frac{|I^*|}{d+1}.
+\]
+
+\paragraph{例子}
+星形图中心度数为 $d$。若算法不慎先选中心，则得到独立集大小 $1$；最优选择所有叶子，大小
+$d$。比值为 $d$，说明依赖最大度的保证是必要的。
+
+\subsection[边长为 1 或 2 的 Metric TSP 的 4/3-近似]{边长为 1 或 2 的 Metric TSP 的 $4/3$-近似}
+
+\paragraph{题目}
+完全无向图的边长只可能为 $1$ 或 $2$，且满足三角不等式。给出该特殊 TSP 的 $4/3$-近似算法。
+提示：可多项式时间求最小费用 2-matching。2-matching 是每个顶点度数恰好为 $2$ 的边集，
+可能由多个不相交环组成。
+
+\paragraph{算法}
+\begin{enumerate}
+  \item 求一个最小费用 2-matching $M$。它是若干个点不相交环的并。
+  \item 若 $M$ 只有一个环，它就是 Hamilton 环，直接返回。
+  \item 若有多个环，从每个环中删去一条边，把这些环断成路径。
+  \item 用若干条边把这些路径首尾连接成一个 Hamilton 环。
+\end{enumerate}
+
+\paragraph{费用分析}
+设最优 TSP 长度为 $\OPT$。任意 Hamilton 环本身也是一个 2-matching，所以
+\[
+  cost(M)\le \OPT.
+\]
+设 $M$ 有 $r$ 个环。每个环长度至少为 $3$，因此
+\[
+  r\le n/3.
+\]
+连接 $r$ 条路径需要 $r$ 条新边，每条新边费用至多 $2$；同时每个环删去一条边，删边费用至少
+$1$。所以相对 $M$ 的净增加最多为
+\[
+  2r-r=r.
+\]
+故算法费用
+\[
+  ALG\le cost(M)+r\le \OPT+n/3.
+\]
+在 1--2 TSP 中，任意 Hamilton 环有 $n$ 条边且每条边至少 $1$，所以 $\OPT\ge n$。
+这给出
+\[
+  ALG\le \frac43\OPT.
+\]
+
+结合 $\OPT\ge n$，得到
+\[
+  ALG\le \OPT+\frac n3\le \frac43\OPT.
+\]
+这就是课件要求的 $4/3$ 近似比。
+
+\paragraph{例子}
+若最小 2-matching 是两个三角形，每条环内边费用为 $1$，则 $cost(M)=6$。
+删除两个环各一条边损失 $2$，再用两条费用至多 $2$ 的边连接，费用最多变为
+$6-2+4=8$。
 
 \backmatter
 \chapter{总复习提纲}
